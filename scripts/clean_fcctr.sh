@@ -64,7 +64,8 @@ fi
 
 
 echo Cleaning /var/lib/firecracker-containerd/*
-for d in containerd shim-base snapshotter; do sudo rm -rf /var/lib/firecracker-containerd/$d; done
+for d in shim-base; do sudo rm -rf /var/lib/firecracker-containerd/$d; done
+for d in containerd snapshotter; do sudo rm -rf /fccd/var/lib/firecracker-containerd/$d; done
 
 echo Cleaning /run/firecracker-containerd/*
 sudo rm -rf /run/firecracker-containerd/containerd.sock.ttrpc \

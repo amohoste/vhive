@@ -1,9 +1,9 @@
 #!/bin/bash
 
-sudo mkdir -p /var/lib/firecracker-containerd/snapshotter/devmapper
+sudo mkdir -p /fccd/var/lib/firecracker-containerd/snapshotter/devmapper
 
-pushd /var/lib/firecracker-containerd/snapshotter/devmapper > /dev/null
-DIR=/var/lib/firecracker-containerd/snapshotter/devmapper
+pushd /fccd/var/lib/firecracker-containerd/snapshotter/devmapper > /dev/null
+DIR=/fccd/var/lib/firecracker-containerd/snapshotter/devmapper
 POOL=fc-dev-thinpool
 
 # When executed inside a docker container, this command returns the container ID of the container.
