@@ -32,7 +32,7 @@ Environment="KUBELET_EXTRA_ARGS=--container-runtime=remote --max-pods=500 --runt
 EOF'
 sudo systemctl daemon-reload
 
-sudo kubeadm init --ignore-preflight-errors=all --cri-socket /run/containerd/containerd.sock --pod-network-cidr=192.168.0.0/16 --config $ROOT/configs/kubeadm/kubeadm-conf.yaml
+sudo kubeadm init --ignore-preflight-errors=all --cri-socket /run/containerd/containerd.sock --config $ROOT/configs/kubeadm/kubeadm-conf.yaml
 
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
