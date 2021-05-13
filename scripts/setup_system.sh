@@ -48,6 +48,7 @@ sudo apt-get -y install \
     iproute2 \
     skopeo >> /dev/null
 
+
 # stack size, # of open files, # of pids
 sudo sh -c "echo \"* soft nofile 1000000\" >> /etc/security/limits.conf"
 sudo sh -c "echo \"* hard nofile 1000000\" >> /etc/security/limits.conf"
@@ -61,6 +62,15 @@ sudo sh -c "echo \"* soft stack 65536\" >> /etc/security/limits.conf"
 sudo sh -c "echo \"* hard stack 65536\" >> /etc/security/limits.conf"
 sudo sh -c "echo \"root soft stack 65536\" >> /etc/security/limits.conf"
 sudo sh -c "echo \"root hard stack 65536\" >> /etc/security/limits.conf"
+
+# increase stability running more pods per node
+sudo sysctl -w fs.inotify.max_user_watches=524288 
+sysctl -w net.ipv4.neigh.default.gc_thresh3=65536
+sysctl -w net.ipv4.neigh.default.gc_thresh2=32768
+sysctl -w net.ipv4.neigh.default.gc_thresh1=8192
+sysctl -w net.ipv6.neigh.default.gc_thresh3=65536
+sysctl -w net.ipv6.neigh.default.gc_thresh2=32768
+sysctl -w net.ipv6.neigh.default.gc_thresh1=8192
 
 sudo sysctl -w net.ipv4.conf.all.forwarding=1
 # Avoid "neighbour: arp_cache: neighbor table overflow!"

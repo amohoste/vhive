@@ -41,3 +41,4 @@ if [ "$STOCK_CONTAINERD" != "stock-only" ]; then
     $SCRIPTS/create_devmapper.sh
 fi
 
+kubelet --config $ROOT/configs/kubelet/kubelet-config.yaml
