@@ -20,13 +20,3 @@ spec:
           operator: In
           values:
           - ${MINIO_NODE_NAME}
-  tolerations: # Force on master node
-    - key: "node-role.kubernetes.io/master"
-      effect: "NoSchedule"
-  affinity: # Force on master node
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: "node-role.kubernetes.io/master"
-            operator: Exists         
