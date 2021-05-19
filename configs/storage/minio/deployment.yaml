@@ -41,4 +41,13 @@ spec:
         volumeMounts:
         - name: storage # must match the volume name, above
           mountPath: "/storage"
-
+      tolerations: # Force on master node
+        - key: "node-role.kubernetes.io/master"
+          effect: "NoSchedule"
+      affinity: # Force on master node
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "node-role.kubernetes.io/master"
+                operator: Exists
