@@ -25,9 +25,11 @@ package cri
 import (
 	"context"
 	"errors"
-
+	"fmt"
+	"github.com/ease-lab/vhive/metrics"
 	log "github.com/sirupsen/logrus"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	"time"
 )
 
 const (
@@ -36,6 +38,9 @@ const (
 	guestIPEnv        = "GUEST_ADDR"
 	guestPortEnv      = "GUEST_PORT"
 	guestImageEnv     = "GUEST_IMAGE"
+	snapshotNameEnv   = "SNAPSHOT_NAME"
+	initTypeEnv		  = "INIT_TYPE"
+	blockStoreEnv	  = "BLOCKS_STORE"
 	guestPortValue    = "50051"
 )
 
@@ -64,14 +69,20 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 	var (
 		stockResp *criapi.CreateContainerResponse
 		stockErr  error
+		tStartStub    time.Time
+		tStart    time.Time
+		createContainerMetric *metrics.Metric = metrics.NewMetric()
 		stockDone = make(chan struct{})
 	)
 
 	go func() {
+		tStartStub = time.Now()
 		defer close(stockDone)
 		stockResp, stockErr = s.stockRuntimeClient.CreateContainer(ctx, r)
+		createContainerMetric.MetricMap["stub"] = metrics.ToUS(time.Since(tStartStub))
 	}()
 
+	tStart = time.Now()
 	config := r.GetConfig()
 	guestImage, err := getGuestImage(config)
 	if err != nil {
@@ -79,6 +90,13 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		return nil, err
 	}
 
+	log.Info(fmt.Sprintf("Create container for %s", guestImage))
+
+	//remoteSnapshotName, _ := getRemoteSnapshotInfo(config)
+	//initType, _ := getInitInfo(config)
+	//blockStoreUrl, _ := getBlockStoreUrl(config)
+
+	// funcInst, err := s.coordinator.startVM(context.Background(), guestImage, remoteSnapshotName, initType, blockStoreUrl)
 	funcInst, err := s.coordinator.startVM(context.Background(), guestImage)
 	if err != nil {
 		log.WithError(err).Error("failed to start VM")
@@ -87,6 +105,7 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 
 	vmConfig := &VMConfig{guestIP: funcInst.startVMResponse.GuestIP, guestPort: guestPortValue}
 	s.insertPodVMConfig(r.GetPodSandboxId(), vmConfig)
+	createContainerMetric.MetricMap["function"] = metrics.ToUS(time.Since(tStart))
 
 	// Wait for placeholder UC to be created
 	<-stockDone
@@ -97,6 +116,9 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		log.WithError(err).Error("failed to insert active VM")
 		return nil, err
 	}
+
+	log.Info(fmt.Sprintf("	Total create stub container: %d", createContainerMetric.MetricMap["stub"]))
+	log.Info(fmt.Sprintf("	Total create function container: %d", createContainerMetric.MetricMap["function"]))
 
 	return stockResp, stockErr
 }
@@ -135,3 +157,36 @@ func getGuestImage(config *criapi.ContainerConfig) (string, error) {
 	return "", errors.New("failed to provide non empty guest image in user container config")
 
 }
+
+/*func getInitInfo(config *criapi.ContainerConfig) (string, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == initTypeEnv {
+			return kv.GetValue(), nil
+		}
+	}
+
+	return "", errors.New("failed to provide non empty guest image in user container config")
+}
+
+func getBlockStoreUrl(config *criapi.ContainerConfig) (string, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == blockStoreEnv {
+			return kv.GetValue(), nil
+		}
+	}
+
+	return "", errors.New("failed to provide non empty guest image in user container config")
+}
+
+func getRemoteSnapshotInfo(config *criapi.ContainerConfig) (string, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == snapshotNameEnv {
+			return kv.GetValue(), nil
+		}
+	}
+
+	return "", errors.New("failed to provide non empty guest image in user container config")
+}*/

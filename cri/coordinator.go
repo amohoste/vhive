@@ -25,6 +25,8 @@ package cri
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/ease-lab/vhive/metrics"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -98,7 +100,24 @@ func (c *coordinator) setIdleInstance(fi *funcInstance) {
 	c.idleInstances[fi.image] = append(c.idleInstances[fi.image], fi)
 }
 
+// func (c *coordinator) startVM(ctx context.Context, image string, remoteSnapshot string, initType string, blockStoreUrl string) (*funcInstance, error) {
 func (c *coordinator) startVM(ctx context.Context, image string) (*funcInstance, error) {
+	/*if initType == "scratch" {
+		return c.orchStartVM(ctx, image)
+	} else if initType == "remote" {
+		// TODO
+
+	} else if initType == "local" {
+		if fi := c.getIdleInstance(image); c.orch != nil && c.orch.GetSnapshotsEnabled() && fi != nil {
+			err := c.orchLoadInstance(ctx, fi)
+			return fi, err
+		}
+
+		log.Info("	Could not find local snapshot!")
+		return c.orchStartVM(ctx, image)
+	}*/
+
+	//log.Info("	Container init type was not specified!")
 	if fi := c.getIdleInstance(image); c.orch != nil && c.orch.GetSnapshotsEnabled() && fi != nil {
 		err := c.orchLoadInstance(ctx, fi)
 		return fi, err
@@ -187,15 +206,21 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
+	tStart := time.Now()
+
 	if _, err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
 
+	log.Info(fmt.Sprintf("	Snap - Load Snapshot: %d", metrics.ToUS(time.Since(tStart))))
+	tStart = time.Now()
+
 	if _, err := c.orch.ResumeVM(ctxTimeout, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
+	log.Info(fmt.Sprintf("	Snap - Resume VM: %d", metrics.ToUS(time.Since(tStart))))
 
 	fi.logger.Debug("successfully loaded idle instance")
 	return nil

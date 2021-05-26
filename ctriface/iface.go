@@ -25,15 +25,15 @@ package ctriface
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"net"
-	"net/url"
-	"net/http"
 
 	log "github.com/sirupsen/logrus"
 
@@ -100,11 +100,13 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		return nil, nil, errors.Wrapf(err, "Failed to get/pull image")
 	}
 	startVMMetric.MetricMap[metrics.GetImage] = metrics.ToUS(time.Since(tStart))
+	log.Info(fmt.Sprintf("	Scratch - Fetch image: %d", startVMMetric.MetricMap[metrics.GetImage]))
 
 	tStart = time.Now()
 	conf := o.getVMConfig(vm)
 	resp, err := o.fcClient.CreateVM(ctx, conf)
 	startVMMetric.MetricMap[metrics.FcCreateVM] = metrics.ToUS(time.Since(tStart))
+	log.Info(fmt.Sprintf("	Scratch - Create VM: %d", startVMMetric.MetricMap[metrics.FcCreateVM]))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to create the microVM in firecracker-containerd")
 	}
@@ -185,6 +187,8 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		return nil, nil, errors.Wrap(err, "failed to start a task")
 	}
 	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
+
+	log.Info(fmt.Sprintf("	Scratch - Init vm: %d", startVMMetric.MetricMap[metrics.NewContainer] + startVMMetric.MetricMap[metrics.NewTask] + startVMMetric.MetricMap[metrics.TaskWait] + startVMMetric.MetricMap[metrics.TaskStart]))
 
 	defer func() {
 		if retErr != nil {
