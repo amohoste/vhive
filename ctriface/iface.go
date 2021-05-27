@@ -188,7 +188,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 	}
 	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
 
-	log.Info(fmt.Sprintf("	Scratch - Init vm: %d", startVMMetric.MetricMap[metrics.NewContainer] + startVMMetric.MetricMap[metrics.NewTask] + startVMMetric.MetricMap[metrics.TaskWait] + startVMMetric.MetricMap[metrics.TaskStart]))
+	log.Info(fmt.Sprintf("	Scratch - Init vm: %f", startVMMetric.MetricMap[metrics.NewContainer] + startVMMetric.MetricMap[metrics.NewTask] + startVMMetric.MetricMap[metrics.TaskWait] + startVMMetric.MetricMap[metrics.TaskStart]))
 
 	defer func() {
 		if retErr != nil {
