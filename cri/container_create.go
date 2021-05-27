@@ -117,8 +117,8 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		return nil, err
 	}
 
-	log.Info(fmt.Sprintf("	Total create stub container: %d", createContainerMetric.MetricMap["stub"]))
-	log.Info(fmt.Sprintf("	Total create function container: %d", createContainerMetric.MetricMap["function"]))
+	log.Info(fmt.Sprintf("	Total create stub container: %f", createContainerMetric.MetricMap["stub"]))
+	log.Info(fmt.Sprintf("	Total create function container: %f", createContainerMetric.MetricMap["function"]))
 
 	return stockResp, stockErr
 }

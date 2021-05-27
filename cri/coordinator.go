@@ -213,14 +213,14 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 		return err
 	}
 
-	log.Info(fmt.Sprintf("	Snap - Load Snapshot: %d", metrics.ToUS(time.Since(tStart))))
+	log.Info(fmt.Sprintf("	Snap - Load Snapshot: %f", metrics.ToUS(time.Since(tStart))))
 	tStart = time.Now()
 
 	if _, err := c.orch.ResumeVM(ctxTimeout, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
-	log.Info(fmt.Sprintf("	Snap - Resume VM: %d", metrics.ToUS(time.Since(tStart))))
+	log.Info(fmt.Sprintf("	Snap - Resume VM: %f", metrics.ToUS(time.Since(tStart))))
 
 	fi.logger.Debug("successfully loaded idle instance")
 	return nil
