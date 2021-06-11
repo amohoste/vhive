@@ -20,12 +20,47 @@ spec:
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500Mi
+            limits:
+              cpu: 4000m
+              memory: 8Gi
+          tolerations: # Force on master node
+            - key: "node-role.kubernetes.io/master"
+              effect: "NoSchedule"
+          affinity: # Force on master node
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: "node-role.kubernetes.io/master"
+                    operator: Exists
       - name: cluster-local-gateway
         enabled: true
         label:
           istio: cluster-local-gateway
           app: cluster-local-gateway
         k8s:
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500Mi
+            limits:
+              cpu: "4000m"
+              memory: 8Gi
+          tolerations: # Force on master node
+            - key: "node-role.kubernetes.io/master"
+              effect: "NoSchedule"
+          affinity: # Force on master node
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: "node-role.kubernetes.io/master"
+                    operator: Exists
           service:
             type: ClusterIP
             ports:
