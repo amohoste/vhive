@@ -31,6 +31,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/ctriface"
 	log "github.com/sirupsen/logrus"
 )
