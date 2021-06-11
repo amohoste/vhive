@@ -26,6 +26,9 @@ import (
 	"context"
 	"errors"
 
+	"fmt"
+	"github.com/ease-lab/vhive/metrics"
+	"time"
 	log "github.com/sirupsen/logrus"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
@@ -64,12 +67,17 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 	var (
 		stockResp *criapi.CreateContainerResponse
 		stockErr  error
+		tStartStub    time.Time
+		tStart    time.Time
+		createContainerMetric *metrics.Metric = metrics.NewMetric()
 		stockDone = make(chan struct{})
 	)
 
 	go func() {
+		tStartStub = time.Now()
 		defer close(stockDone)
 		stockResp, stockErr = s.stockRuntimeClient.CreateContainer(ctx, r)
+		createContainerMetric.MetricMap["stub"] = metrics.ToUS(time.Since(tStartStub))
 	}()
 
 	config := r.GetConfig()
@@ -79,14 +87,19 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		return nil, err
 	}
 
+	tStart = time.Now()
 	funcInst, err := s.coordinator.startVM(context.Background(), guestImage)
 	if err != nil {
 		log.WithError(err).Error("failed to start VM")
 		return nil, err
 	}
 
+	log.Info(fmt.Sprintf("Create container for %s", guestImage))
+
 	vmConfig := &VMConfig{guestIP: funcInst.startVMResponse.GuestIP, guestPort: guestPortValue}
 	s.insertPodVMConfig(r.GetPodSandboxId(), vmConfig)
+
+	createContainerMetric.MetricMap["function"] = metrics.ToUS(time.Since(tStart))
 
 	// Wait for placeholder UC to be created
 	<-stockDone
@@ -98,10 +111,15 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		return nil, err
 	}
 
+	log.Info(fmt.Sprintf("	Total create stub container: %f", createContainerMetric.MetricMap["stub"]))
+	log.Info(fmt.Sprintf("	Total create function container: %f", createContainerMetric.MetricMap["function"]))
+
 	return stockResp, stockErr
 }
 
 func (s *Service) createQueueProxy(ctx context.Context, r *criapi.CreateContainerRequest) (*criapi.CreateContainerResponse, error) {
+	tStart := time.Now()
+
 	vmConfig, err := s.getPodVMConfig(r.GetPodSandboxId())
 	if err != nil {
 		log.WithError(err).Error()
@@ -119,6 +137,8 @@ func (s *Service) createQueueProxy(ctx context.Context, r *criapi.CreateContaine
 		log.WithError(err).Error("stock containerd failed to start UC")
 		return nil, err
 	}
+
+	log.Info(fmt.Sprintf("	Total create queue-proxy: %f", metrics.ToUS(time.Since(tStart)))) 
 
 	return resp, nil
 }

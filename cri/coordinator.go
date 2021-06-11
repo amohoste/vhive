@@ -25,6 +25,7 @@ package cri
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -184,6 +185,7 @@ func (c *coordinator) orchStartVM(ctx context.Context, image string) (*funcInsta
 func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) error {
 	fi.logger.Debug("found idle instance to load")
 
+	tStart := time.Now()
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
@@ -191,11 +193,14 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
+	log.Info(fmt.Sprintf("	Snap - Load Snapshot: %f", metrics.ToUS(time.Since(tStart))))
+	tStart = time.Now()
 
 	if _, err := c.orch.ResumeVM(ctxTimeout, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
+	log.Info(fmt.Sprintf("	Snap - Resume VM: %f", metrics.ToUS(time.Since(tStart))))
 
 	fi.logger.Debug("successfully loaded idle instance")
 	return nil

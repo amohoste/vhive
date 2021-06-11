@@ -100,11 +100,13 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		return nil, nil, errors.Wrapf(err, "Failed to get/pull image")
 	}
 	startVMMetric.MetricMap[metrics.GetImage] = metrics.ToUS(time.Since(tStart))
+	log.Info(fmt.Sprintf("	Scratch - Fetch image: %f", startVMMetric.MetricMap[metrics.GetImage]))
 
 	tStart = time.Now()
 	conf := o.getVMConfig(vm)
 	resp, err := o.fcClient.CreateVM(ctx, conf)
 	startVMMetric.MetricMap[metrics.FcCreateVM] = metrics.ToUS(time.Since(tStart))
+	log.Info(fmt.Sprintf("	Scratch - Create VM: %f", startVMMetric.MetricMap[metrics.FcCreateVM]))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to create the microVM in firecracker-containerd")
 	}
@@ -117,6 +119,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		}
 	}()
 
+	tInit := time.Now()
 	logger.Debug("StartVM: Creating a new container")
 	tStart = time.Now()
 	container, err := o.client.NewContainer(
@@ -185,7 +188,6 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		return nil, nil, errors.Wrap(err, "failed to start a task")
 	}
 	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
-
 	defer func() {
 		if retErr != nil {
 			if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
@@ -217,6 +219,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		}
 	}
 
+	log.Info(fmt.Sprintf("	Scratch - Init vm: %f", metrics.ToUS(time.Since(tInit))))
 	logger.Debug("Successfully started a VM")
 
 	return &StartVMResponse{GuestIP: vm.Ni.PrimaryAddress}, startVMMetric, nil
