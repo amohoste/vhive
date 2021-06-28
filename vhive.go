@@ -65,6 +65,7 @@ var (
 
 func main() {
 	var err error
+	// limit the number of operating system threads that can execute user-level Go code simultaneously
 	runtime.GOMAXPROCS(16)
 
 	rand.Seed(42)

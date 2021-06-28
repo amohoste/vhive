@@ -39,6 +39,7 @@ type coordinator struct {
 	orch   *ctriface.Orchestrator
 	nextID uint64
 
+	snapInstances		map[string]*snapInstance
 	activeInstances     map[string]*funcInstance
 	idleInstances       map[string][]*funcInstance
 	withoutOrchestrator bool
@@ -65,6 +66,19 @@ func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coo
 	}
 
 	return c
+}
+
+func (c *coordinator) getSnapinstance(image string) *snapInstance {
+	c.Lock()
+	defer c.Unlock()
+
+	snapInstance, ok := c.snapInstances[image]
+	if !ok {
+		snapInstance = newSnapInstance(image)
+		c.snapInstances[image] = snapInstance
+	}
+
+	return snapInstance
 }
 
 func (c *coordinator) getIdleInstance(image string) *funcInstance {
@@ -99,7 +113,7 @@ func (c *coordinator) setIdleInstance(fi *funcInstance) {
 }
 
 func (c *coordinator) startVM(ctx context.Context, image string) (*funcInstance, error) {
-	if fi := c.getIdleInstance(image); c.orch != nil && c.orch.GetSnapshotsEnabled() && fi != nil {
+	if fi := c.getIdleInstance(image); c.orch != nil && c.orch.GetSnapshotsEnabled() && fi != nil && c.getSnapinstance(image).created {
 		err := c.orchLoadInstance(ctx, fi)
 		return fi, err
 	}
@@ -187,7 +201,7 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	if _, err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID); err != nil {
+	if _, err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID, fi.image); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
@@ -204,7 +218,10 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) error {
 	var err error
 
-	fi.onceCreateSnapInstance.Do(
+	snapInstance := c.getSnapinstance(fi.image)
+
+	// Only create snapshot once for a given image
+	snapInstance.onceCreateSnapInstance.Do(
 		func() {
 			ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 			defer cancel()
@@ -217,11 +234,12 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 				return
 			}
 
-			err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID)
+			err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, fi.image)
 			if err != nil {
 				fi.logger.WithError(err).Error("failed to create snapshot")
 				return
 			}
+			snapInstance.created = true
 		},
 	)
 

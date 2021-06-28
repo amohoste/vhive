@@ -53,11 +53,11 @@ var isTestMode bool // set with a call to NewFuncPool
 // FuncPool Pool of functions
 type FuncPool struct {
 	sync.Mutex
-	funcMap        map[string]*Function
-	saveMemoryMode bool
-	servedTh       uint64
-	pinnedFuncNum  int
-	stats          *Stats
+	funcMap        map[string]*Function // Maps function id to functions
+	saveMemoryMode bool					// Save memory (Don't pin in memory if fid > pinnedFuncNum)
+	servedTh       uint64				// How many times function can serve before shutdown (if savememory)
+	pinnedFuncNum  int					// Number of functions pinned in memory
+	stats          *Stats				// For each fid, how many times started & served
 }
 
 // NewFuncPool Initializes a pool of functions. Functions can only be added
@@ -86,7 +86,7 @@ func NewFuncPool(saveMemoryMode bool, servedTh uint64, pinnedFuncNum int, testMo
 	return p
 }
 
-// getFunction Returns a ptr to a function or creates it unless it exists
+// getFunction Returns a ptr to a function or creates it with the given image if it doesn't exist
 func (p *FuncPool) getFunction(fID, imageName string) *Function {
 	p.Lock()
 	defer p.Unlock()
@@ -163,18 +163,18 @@ func (p *FuncPool) DumpUPFLatencyStats(fID, imageName, functionName, latencyOutF
 // Function type
 type Function struct {
 	sync.RWMutex
-	OnceAddInstance        *sync.Once
-	fID                    string
-	imageName              string
+	OnceAddInstance        *sync.Once		    // only start function VM once
+	fID                    string				// function identifier
+	imageName              string				// image used for function
 	vmID                   string
 	lastInstanceID         int
-	isPinnedInMem          bool // if pinned, the orchestrator does not stop/offload it)
-	stats                  *Stats
-	servedTh               uint64
-	sem                    *semaphore.Weighted
-	servedSyncCounter      int64
-	isSnapshotReady        bool // if ready, the orchestrator should load the instance rather than creating it
-	OnceCreateSnapInstance *sync.Once
+	isPinnedInMem          bool 				// if pinned, the orchestrator does not stop/offload it)
+	stats                  *Stats				// how many times started & serve
+	servedTh               uint64				// How many times function can serve before shutdown (if savememory)
+	sem                    *semaphore.Weighted  // make sure function can serve only up to servedTh requests if not pinned
+	servedSyncCounter      int64				// to get unique number for goroutines acquiring the semaphore.
+	isSnapshotReady        bool 				// if ready, the orchestrator should load the instance rather than creating it
+	OnceCreateSnapInstance *sync.Once			// only create snapshot once
 	funcClient             *hpb.GreeterClient
 	conn                   *grpc.ClientConn
 	guestIP                string
@@ -230,7 +230,7 @@ func NewFunction(fID, imageName string, Stats *Stats, servedTh uint64, isToPin b
 //    c. Instance shutdown is performed asynchronously because all instances have unique IDs.
 func (f *Function) Serve(ctx context.Context, fID, imageName, reqPayload string) (*hpb.FwdHelloResp, *metrics.Metric, error) {
 	var (
-		serveMetric *metrics.Metric = metrics.NewMetric()
+		serveMetric *metrics.Metric = metrics.NewMetric() // Store timings
 		tStart      time.Time
 		syncID      int64 = -1 // default is no synchronization
 		isColdStart bool  = false
@@ -264,6 +264,7 @@ func (f *Function) Serve(ctx context.Context, fID, imageName, reqPayload string)
 			}
 		})
 
+	// Make sure function created & not being deleted
 	f.RLock()
 
 	// FIXME: keep a strict deadline for forwarding RPCs to a warm function
@@ -451,7 +452,7 @@ func (f *Function) CreateInstanceSnapshot() {
 		log.Panic(err)
 	}
 
-	err = orch.CreateSnapshot(ctx, f.vmID)
+	err = orch.CreateSnapshot(ctx, f.vmID, f.imageName)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -488,7 +489,7 @@ func (f *Function) LoadInstance() *metrics.Metric {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	loadMetr, err := orch.LoadSnapshot(ctx, f.vmID)
+	loadMetr, err := orch.LoadSnapshot(ctx, f.vmID, f.imageName)
 	if err != nil {
 		log.Panic(err)
 	}

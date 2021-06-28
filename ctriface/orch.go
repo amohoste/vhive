@@ -47,27 +47,27 @@ import (
 )
 
 const (
-	containerdAddress      = "/run/firecracker-containerd/containerd.sock"
-	containerdTTRPCAddress = containerdAddress + ".ttrpc"
+	containerdAddress      = "/run/firecracker-containerd/containerd.sock" // Containerd client
+	containerdTTRPCAddress = containerdAddress + ".ttrpc"				   // Firecracker client
 	namespaceName          = "firecracker-containerd"
 )
 
 // Orchestrator Drives all VMs
 type Orchestrator struct {
-	vmPool       *misc.VMPool
-	cachedImages map[string]containerd.Image
-	snapshotter  string
-	client       *containerd.Client
-	fcClient     *fcclient.Client
+	vmPool       *misc.VMPool				 // Pool of active VMs. Map of vmid to vms and tapmanager
+	cachedImages map[string]containerd.Image // Cached container images
+	snapshotter  string						 // image snapshotter
+	client       *containerd.Client			 // containerd client
+	fcClient     *fcclient.Client			 // firecrackercontainerd client
 	// store *skv.KVStore
-	snapshotsEnabled bool
+	snapshotsEnabled bool					 // VM snapshots enabled
 	isUPFEnabled     bool
 	isLazyMode       bool
-	snapshotsDir     string
+	snapshotsDir     string					 // Dir for VM snapshots
 	isMetricsMode    bool
 	hostIface        string
 
-	memoryManager *manager.MemoryManager
+	memoryManager *manager.MemoryManager	// Memory manager to handle UPF
 }
 
 // NewOrchestrator Initializes a new orchestrator
@@ -174,20 +174,20 @@ func (o *Orchestrator) GetUPFLatencyStats(vmID string) ([]*metrics.Metric, error
 	return o.memoryManager.GetUPFLatencyStats(vmID)
 }
 
-func (o *Orchestrator) getSnapshotFile(vmID string) string {
-	return filepath.Join(o.getVMBaseDir(vmID), "snap_file")
+func (o *Orchestrator) getSnapshotFile(image string) string {
+	return filepath.Join(o.getVMBaseDir(image), "snap_file")
 }
 
-func (o *Orchestrator) getMemoryFile(vmID string) string {
-	return filepath.Join(o.getVMBaseDir(vmID), "mem_file")
+func (o *Orchestrator) getMemoryFile(image string) string {
+	return filepath.Join(o.getVMBaseDir(image), "mem_file")
 }
 
-func (o *Orchestrator) getWorkingSetFile(vmID string) string {
-	return filepath.Join(o.getVMBaseDir(vmID), "working_set_pages")
+func (o *Orchestrator) getWorkingSetFile(image string) string {
+	return filepath.Join(o.getVMBaseDir(image), "working_set_pages")
 }
 
-func (o *Orchestrator) getVMBaseDir(vmID string) string {
-	return filepath.Join(o.snapshotsDir, vmID)
+func (o *Orchestrator) getVMBaseDir(image string) string {
+	return filepath.Join(o.snapshotsDir, image)
 }
 
 func (o *Orchestrator) setupHeartbeat() {

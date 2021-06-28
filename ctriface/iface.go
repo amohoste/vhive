@@ -25,15 +25,15 @@ package ctriface
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"net"
-	"net/url"
-	"net/http"
 
 	log "github.com/sirupsen/logrus"
 
@@ -194,7 +194,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		}
 	}()
 
-	if err := os.MkdirAll(o.getVMBaseDir(vmID), 0777); err != nil {
+	if err := os.MkdirAll(o.getVMBaseDir(imageName), 0777); err != nil {
 		logger.Error("Failed to create VM base dir")
 		return nil, nil, err
 	}
@@ -203,12 +203,12 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 
 		stateCfg := manager.SnapshotStateCfg{
 			VMID:             vmID,
-			GuestMemPath:     o.getMemoryFile(vmID),
-			BaseDir:          o.getVMBaseDir(vmID),
+			GuestMemPath:     o.getMemoryFile(imageName),
+			BaseDir:          o.getVMBaseDir(imageName),
 			GuestMemSize:     int(conf.MachineCfg.MemSizeMib) * 1024 * 1024,
 			IsLazyMode:       o.isLazyMode,
-			VMMStatePath:     o.getSnapshotFile(vmID),
-			WorkingSetPath:   o.getWorkingSetFile(vmID),
+			VMMStatePath:     o.getSnapshotFile(imageName),
+			WorkingSetPath:   o.getWorkingSetFile(imageName),
 			InstanceSockAddr: resp.UPFSockPath,
 		}
 		if err := o.memoryManager.RegisterVM(stateCfg); err != nil {
@@ -454,7 +454,7 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string) (*metrics.Metr
 }
 
 // CreateSnapshot Creates a snapshot of a VM
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string) error {
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, image string) error {
 	logger := log.WithFields(log.Fields{"vmID": vmID})
 	logger.Debug("Orchestrator received CreateSnapshot")
 
@@ -462,8 +462,8 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string) error {
 
 	req := &proto.CreateSnapshotRequest{
 		VMID:             vmID,
-		SnapshotFilePath: o.getSnapshotFile(vmID),
-		MemFilePath:      o.getMemoryFile(vmID),
+		SnapshotFilePath: o.getSnapshotFile(image),
+		MemFilePath:      o.getMemoryFile(image),
 	}
 
 	if _, err := o.fcClient.CreateSnapshot(ctx, req); err != nil {
@@ -475,7 +475,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string) error {
 }
 
 // LoadSnapshot Loads a snapshot of a VM
-func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string) (*metrics.Metric, error) {
+func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, image string) (*metrics.Metric, error) {
 	var (
 		loadSnapshotMetric   *metrics.Metric = metrics.NewMetric()
 		tStart               time.Time
@@ -490,8 +490,8 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string) (*metrics.
 
 	req := &proto.LoadSnapshotRequest{
 		VMID:             vmID,
-		SnapshotFilePath: o.getSnapshotFile(vmID),
-		MemFilePath:      o.getMemoryFile(vmID),
+		SnapshotFilePath: o.getSnapshotFile(image),
+		MemFilePath:      o.getMemoryFile(image),
 		EnableUserPF:     o.GetUPFEnabled(),
 	}
 
