@@ -58,6 +58,7 @@ func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coo
 	c := &coordinator{
 		activeInstances: make(map[string]*funcInstance),
 		idleInstances:   make(map[string][]*funcInstance),
+		snapInstances:   make(map[string]*snapInstance),
 		orch:            orch,
 	}
 
