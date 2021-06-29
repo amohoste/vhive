@@ -25,6 +25,7 @@
 PWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 $PWD/setup_system.sh
 $PWD/create_devmapper.sh
+$PWD/install_go.sh
 
 # install Protocol Buffer Compiler
 PROTO_VERSION=3.11.4
