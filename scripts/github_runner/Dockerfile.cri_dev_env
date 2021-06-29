@@ -39,6 +39,7 @@ RUN apt-get update && \
     ca-certificates \
     make jq \
     acl \
+    screen \
     git git-lfs \
     bc \
     dmsetup \
