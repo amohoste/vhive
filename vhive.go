@@ -65,23 +65,32 @@ var (
 
 func main() {
 	var err error
+
 	// limit the number of operating system threads that can execute user-level Go code simultaneously
 	runtime.GOMAXPROCS(16)
 
 	rand.Seed(42)
-	snapshotter := flag.String("ss", "devmapper", "snapshotter name")
+
 	debug := flag.Bool("dbg", false, "Enable debug logging")
 
-	isSaveMemory = flag.Bool("ms", false, "Enable memory saving")
+	// CRI arguments
+	// Kubernetes sends CRI requests to this socket
+	criSock = flag.String("criSock", "/etc/firecracker-containerd/fccd-cri.sock", "Socket address for CRI service")
+
+	// Orch arguments
+	snapshotter := flag.String("ss", "devmapper", "snapshotter name")
 	isSnapshotsEnabled = flag.Bool("snapshots", false, "Use VM snapshots when adding function instances")
 	isUPFEnabled = flag.Bool("upf", false, "Enable user-level page faults guest memory management")
 	isMetricsMode = flag.Bool("metrics", false, "Calculate UPF metrics")
+	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
+	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
+
+	// Funcpool arguments (benchmarking & tests)
+	isSaveMemory = flag.Bool("ms", false, "Enable memory saving")
 	servedThreshold = flag.Uint64("st", 1000*1000, "Functions serves X RPCs before it shuts down (if saveMemory=true)")
 	pinnedFuncNum = flag.Int("hn", 0, "Number of functions pinned in memory (IDs from 0 to X)")
-	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
-	criSock = flag.String("criSock", "/etc/firecracker-containerd/fccd-cri.sock", "Socket address for CRI service")
-	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access")
 
+	// Parse cmd line arguments
 	flag.Parse()
 
 	if *isUPFEnabled && !*isSnapshotsEnabled {
@@ -94,6 +103,7 @@ func main() {
 		return
 	}
 
+	// Setup logging
 	if flog, err = os.Create("/tmp/fccd.log"); err != nil {
 		panic(err)
 	}
@@ -120,6 +130,7 @@ func main() {
 
 	testModeOn := false
 
+	// Run vHive components
 	orch = ctriface.NewOrchestrator(
 		*snapshotter,
 		*hostIface,
@@ -145,6 +156,7 @@ type fwdServer struct {
 	hpb.UnimplementedFwdGreeterServer
 }
 
+// Serve K8S CRI requests on specified socket
 func criServe() {
 	lis, err := net.Listen("unix", *criSock)
 	if err != nil {
@@ -165,6 +177,7 @@ func criServe() {
 	}
 }
 
+// Listen to grpc requests to start & stop VMs
 func orchServe() {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
@@ -179,6 +192,7 @@ func orchServe() {
 	}
 }
 
+// Probably for debugging?
 func fwdServe() {
 	lis, err := net.Listen("tcp", fwdPort)
 	if err != nil {
@@ -234,6 +248,7 @@ func (s *server) StopVMs(ctx context.Context, in *pb.StopVMsReq) (*pb.Status, er
 	return &pb.Status{Message: "Stopped VMs"}, nil
 }
 
+// Probably also for debugging / benchmarking
 func (s *fwdServer) FwdHello(ctx context.Context, in *hpb.FwdHelloReq) (*hpb.FwdHelloResp, error) {
 	fID := in.GetId()
 	imageName := in.GetImage()

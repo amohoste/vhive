@@ -123,6 +123,8 @@ func ConfigIPtables(tapName, hostIface string) error {
 			}
 		}
 	}
+
+	// Allows entire network of internal IP addresses to operate through one external IP address
 	cmd := exec.Command(
 		"sudo", "iptables", "--wait", "-t", "nat", "-A", "POSTROUTING", "-o", hostIface, "-j", "MASQUERADE",
 	)
@@ -131,6 +133,8 @@ func ConfigIPtables(tapName, hostIface string) error {
 		log.Warnf("Failed to configure NAT %v\n%s\n", err, stdoutStderr)
 		return err
 	}
+
+	// Forward from tap to host interface
 	cmd = exec.Command(
 		"sudo", "iptables", "--wait", "-A", "FORWARD", "-i", tapName, "-o", hostIface, "-j", "ACCEPT",
 	)
@@ -139,6 +143,8 @@ func ConfigIPtables(tapName, hostIface string) error {
 		log.Warnf("Failed to setup forwarding into tap %v\n%s\n", err, stdoutStderr)
 		return err
 	}
+
+	// Forward form host interface to tap
 	cmd = exec.Command(
 		"sudo", "iptables", "--wait", "-A", "FORWARD", "-o", tapName, "-i", hostIface, "-j", "ACCEPT",
 	)
@@ -147,6 +153,7 @@ func ConfigIPtables(tapName, hostIface string) error {
 		log.Warnf("Failed to setup forwarding out from tap %v\n%s\n", err, stdoutStderr)
 		return err
 	}
+
 	cmd = exec.Command(
 		"sudo", "iptables", "--wait", "-A", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT",
 	)
@@ -155,6 +162,7 @@ func ConfigIPtables(tapName, hostIface string) error {
 		log.Warnf("Failed to configure conntrack %v\n%s\n", err, stdoutStderr)
 		return err
 	}
+
 	return nil
 }
 

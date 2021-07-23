@@ -23,8 +23,6 @@
 package cri
 
 import (
-	"sync"
-
 	"github.com/ease-lab/vhive/ctriface"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,7 +31,6 @@ type funcInstance struct {
 	vmID                   string
 	image                  string
 	logger                 *log.Entry
-	onceCreateSnapInstance *sync.Once
 	startVMResponse        *ctriface.StartVMResponse
 }
 
@@ -41,7 +38,6 @@ func newFuncInstance(vmID, image string, startVMResponse *ctriface.StartVMRespon
 	f := &funcInstance{
 		vmID:                   vmID,
 		image:                  image,
-		onceCreateSnapInstance: new(sync.Once),
 		startVMResponse:        startVMResponse,
 	}
 

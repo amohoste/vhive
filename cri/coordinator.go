@@ -114,12 +114,47 @@ func (c *coordinator) setIdleInstance(fi *funcInstance) {
 }
 
 func (c *coordinator) startVM(ctx context.Context, image string) (*funcInstance, error) {
-	if fi := c.getIdleInstance(image); c.orch != nil && c.orch.GetSnapshotsEnabled() && fi != nil && c.getSnapinstance(image).created {
-		err := c.orchLoadInstance(ctx, fi)
-		return fi, err
+
+	if c.orch != nil && c.orch.GetSnapshotsEnabled() && c.getSnapinstance(image).created {
+		if fi := c.getIdleInstance(image); fi != nil {
+			err := c.orchLoadInstance(ctx, fi)
+			return fi, err
+		}
+		// i := newFuncInstance(vmID, image, resp)// TODO
 	}
 
 	return c.orchStartVM(ctx, image)
+}
+
+func (c *coordinator) allocFuncInstance(ctx context.Context, image string) (*funcInstance, error) {
+	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
+	logger := log.WithFields(
+		log.Fields{
+			"vmID":  vmID,
+			"image": image,
+		},
+	)
+
+	logger.Debug("allocating new instance for snapshot")
+
+	var (
+		resp *ctriface.StartVMResponse
+		err  error
+	)
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*40)
+	defer cancel()
+
+	if !c.withoutOrchestrator {
+		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image)
+		if err != nil {
+			logger.WithError(err).Error("coordinator failed to start VM")
+		}
+	}
+
+	fi := newFuncInstance(vmID, image, resp)
+	logger.Debug("successfully created fresh instance")
+	return fi, err
 }
 
 func (c *coordinator) stopVM(ctx context.Context, containerID string) error {

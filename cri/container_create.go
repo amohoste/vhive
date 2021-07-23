@@ -126,7 +126,7 @@ func (s *Service) createQueueProxy(ctx context.Context, r *criapi.CreateContaine
 func getGuestImage(config *criapi.ContainerConfig) (string, error) {
 	envs := config.GetEnvs()
 	for _, kv := range envs {
-		if kv.GetKey() == guestImageEnv {
+		if kv.GetKey() == guestImageEnv  {
 			return kv.GetValue(), nil
 		}
 

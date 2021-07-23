@@ -309,7 +309,7 @@ func getImageURL(image string) string {
 }
 
 func (o *Orchestrator) getImage(ctx context.Context, imageName string) (*containerd.Image, error) {
-	image, found := o.cachedImages[imageName]
+	image, found := o.cachedImages[imageName] // TODO: Using snapshotter is probably more efficient here?
 	if !found {
 		var err error
 		log.Debug(fmt.Sprintf("Pulling image %s", imageName))
