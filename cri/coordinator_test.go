@@ -33,7 +33,7 @@ import (
 
 func TestStartStop(t *testing.T) {
 	containerID := "1"
-	fi, err := coord.startVM(context.Background(), containerID)
+	fi, err := coord.startVM(context.Background(), containerID, 256)
 	require.NoError(t, err, "could not start VM")
 
 	err = coord.insertActive(containerID, fi)
@@ -60,7 +60,7 @@ func TestParallelStartStop(t *testing.T) {
 			defer wg.Done()
 
 			containerID := strconv.Itoa(i)
-			fi, err := coord.startVM(context.Background(), containerID)
+			fi, err := coord.startVM(context.Background(), containerID, 256)
 			require.NoError(t, err, "could not start VM")
 
 			err = coord.insertActive(containerID, fi)

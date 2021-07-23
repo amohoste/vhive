@@ -25,6 +25,7 @@ package cri
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
@@ -36,6 +37,7 @@ const (
 	guestIPEnv        = "GUEST_ADDR"
 	guestPortEnv      = "GUEST_PORT"
 	guestImageEnv     = "GUEST_IMAGE"
+	memorySizeEnv     = "MEM_SIZE_MB"
 	guestPortValue    = "50051"
 )
 
@@ -73,13 +75,21 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 	}()
 
 	config := r.GetConfig()
+
 	guestImage, err := getGuestImage(config)
 	if err != nil {
 		log.WithError(err).Error()
 		return nil, err
 	}
 
-	funcInst, err := s.coordinator.startVM(context.Background(), guestImage)
+	memSizeMb, err2 := getMemorySize(config)
+	if err2 != nil {
+		log.WithError(err2).Error()
+		return nil, err2
+	}
+
+
+	funcInst, err := s.coordinator.startVM(context.Background(), guestImage, memSizeMb)
 	if err != nil {
 		log.WithError(err).Error("failed to start VM")
 		return nil, err
@@ -134,4 +144,22 @@ func getGuestImage(config *criapi.ContainerConfig) (string, error) {
 
 	return "", errors.New("failed to provide non empty guest image in user container config")
 
+}
+
+func getMemorySize(config *criapi.ContainerConfig) (int, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == memorySizeEnv {
+			memSize, err := strconv.Atoi(kv.GetValue())
+			if err == nil {
+				return memSize, nil
+			} else {
+				return 0, err
+			}
+		}
+
+	}
+
+	// Default 256 MB
+	return 256, nil
 }
