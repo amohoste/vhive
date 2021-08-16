@@ -84,3 +84,9 @@ sudo sysctl --quiet -w kernel.threads-max=999999999
 sudo swapoff -a >> /dev/null
 sudo sysctl --quiet net.ipv4.ip_forward=1
 sudo sysctl --quiet --system
+
+# NAT setup
+hostiface=$(sudo route | grep default | tr -s ' ' | cut -d ' ' -f 8)
+sudo iptables -t nat -A POSTROUTING -o $hostiface -j MASQUERADE
+sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
