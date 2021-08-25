@@ -23,9 +23,9 @@
 package ctriface
 
 import (
+	"github.com/ease-lab/vhive/devmapper"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -59,6 +59,7 @@ type Orchestrator struct {
 	snapshotter  string						 // image snapshotter
 	client       *containerd.Client			 // containerd client
 	fcClient     *fcclient.Client			 // firecrackercontainerd client
+	devMapper    *devmapper.DeviceMapper
 	// store *skv.KVStore
 	snapshotsEnabled bool					 // VM snapshots enabled
 	isUPFEnabled     bool
@@ -71,13 +72,13 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator Initializes a new orchestrator
-func NewOrchestrator(snapshotter, hostIface string, opts ...OrchestratorOption) *Orchestrator {
+func NewOrchestrator(hostIface string, opts ...OrchestratorOption) *Orchestrator {
 	var err error
 
 	o := new(Orchestrator)
-	o.vmPool = misc.NewVMPool()
+	o.vmPool = misc.NewVMPool(hostIface)
 	o.cachedImages = make(map[string]containerd.Image)
-	o.snapshotter = snapshotter
+	o.snapshotter = "devmapper"
 	o.snapshotsDir = "/fccd/snapshots"
 	o.hostIface = hostIface
 
@@ -95,13 +96,6 @@ func NewOrchestrator(snapshotter, hostIface string, opts ...OrchestratorOption) 
 		log.Panicf("Failed to create snapshots dir %s", o.snapshotsDir)
 	}
 
-	if o.GetUPFEnabled() {
-		managerCfg := manager.MemoryManagerCfg{
-			MetricsModeOn: o.isMetricsMode,
-		}
-		o.memoryManager = manager.NewMemoryManager(managerCfg)
-	}
-
 	log.Info("Creating containerd client")
 	o.client, err = containerd.New(containerdAddress)
 	if err != nil {
@@ -115,6 +109,7 @@ func NewOrchestrator(snapshotter, hostIface string, opts ...OrchestratorOption) 
 		log.Fatal("Failed to start firecracker client", err)
 	}
 	log.Info("Created firecracker client")
+	o.devMapper = devmapper.NewDeviceMapper(o.client, "fc-dev-thinpool")
 	return o
 }
 
@@ -133,7 +128,7 @@ func (o *Orchestrator) setupCloseHandler() {
 // Cleanup Removes the bridges created by the VM pool's tap manager
 // Cleans up snapshots directory
 func (o *Orchestrator) Cleanup() {
-	o.vmPool.RemoveBridges()
+	o.vmPool.CleanupNetwork()
 	if err := os.RemoveAll(o.snapshotsDir); err != nil {
 		log.Panic("failed to delete snapshots dir", err)
 	}
@@ -142,11 +137,6 @@ func (o *Orchestrator) Cleanup() {
 // GetSnapshotsEnabled Returns the snapshots mode of the orchestrator
 func (o *Orchestrator) GetSnapshotsEnabled() bool {
 	return o.snapshotsEnabled
-}
-
-// GetUPFEnabled Returns the UPF mode of the orchestrator
-func (o *Orchestrator) GetUPFEnabled() bool {
-	return o.isUPFEnabled
 }
 
 // DumpUPFPageStats Dumps the memory manager's stats about the number of
@@ -172,22 +162,6 @@ func (o *Orchestrator) GetUPFLatencyStats(vmID string) ([]*metrics.Metric, error
 	logger.Debug("Orchestrator received DumpUPFPageStats")
 
 	return o.memoryManager.GetUPFLatencyStats(vmID)
-}
-
-func (o *Orchestrator) getSnapshotFile(image string) string {
-	return filepath.Join(o.getVMBaseDir(image), "snap_file")
-}
-
-func (o *Orchestrator) getMemoryFile(image string) string {
-	return filepath.Join(o.getVMBaseDir(image), "mem_file")
-}
-
-func (o *Orchestrator) getWorkingSetFile(image string) string {
-	return filepath.Join(o.getVMBaseDir(image), "working_set_pages")
-}
-
-func (o *Orchestrator) getVMBaseDir(image string) string {
-	return filepath.Join(o.snapshotsDir, image)
 }
 
 func (o *Orchestrator) setupHeartbeat() {

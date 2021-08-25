@@ -24,7 +24,9 @@ package cri
 
 import (
 	"context"
-	"errors"
+	"github.com/ease-lab/vhive/metrics"
+	"github.com/ease-lab/vhive/snapshotting"
+	"github.com/pkg/errors"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -34,15 +36,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: collect metrics and add method to write to csv file
+
+const snapshotsDir = "/fccd/snapshots"
+
 type coordinator struct {
 	sync.Mutex
 	orch   *ctriface.Orchestrator
 	nextID uint64
+	isSparseSnaps bool
 
-	snapInstances		map[string]*snapInstance
 	activeInstances     map[string]*funcInstance
-	idleInstances       map[string][]*funcInstance
 	withoutOrchestrator bool
+	snapshotManager     *snapshotting.SnapshotManager
 }
 
 type coordinatorOption func(*coordinator)
@@ -54,12 +60,12 @@ func withoutOrchestrator() coordinatorOption {
 	}
 }
 
-func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coordinator {
+func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool, opts ...coordinatorOption) *coordinator {
 	c := &coordinator{
 		activeInstances: make(map[string]*funcInstance),
-		idleInstances:   make(map[string][]*funcInstance),
-		snapInstances:   make(map[string]*snapInstance),
 		orch:            orch,
+		snapshotManager: snapshotting.NewSnapshotManager(snapshotsDir, snapsCapacityMiB),
+		isSparseSnaps:   isSparseSnaps,
 	}
 
 	for _, opt := range opts {
@@ -69,108 +75,38 @@ func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coo
 	return c
 }
 
-func (c *coordinator) getSnapinstance(image string) *snapInstance {
-	c.Lock()
-	defer c.Unlock()
-
-	snapInstance, ok := c.snapInstances[image]
-	if !ok {
-		snapInstance = newSnapInstance(image)
-		c.snapInstances[image] = snapInstance
-	}
-
-	return snapInstance
-}
-
-func (c *coordinator) getIdleInstance(image string) *funcInstance {
-	c.Lock()
-	defer c.Unlock()
-
-	idles, ok := c.idleInstances[image]
-	if !ok {
-		c.idleInstances[image] = []*funcInstance{}
-		return nil
-	}
-
-	if len(idles) != 0 {
-		fi := idles[0]
-		c.idleInstances[image] = idles[1:]
-		return fi
-	}
-
-	return nil
-}
-
-func (c *coordinator) setIdleInstance(fi *funcInstance) {
-	c.Lock()
-	defer c.Unlock()
-
-	_, ok := c.idleInstances[fi.image]
-	if !ok {
-		c.idleInstances[fi.image] = []*funcInstance{}
-	}
-
-	c.idleInstances[fi.image] = append(c.idleInstances[fi.image], fi)
-}
-
-func (c *coordinator) startVM(ctx context.Context, image string) (*funcInstance, error) {
-
-	if c.orch != nil && c.orch.GetSnapshotsEnabled() && c.getSnapinstance(image).created {
-		if fi := c.getIdleInstance(image); fi != nil {
-			err := c.orchLoadInstance(ctx, fi)
-			return fi, err
-		}
-		// i := newFuncInstance(vmID, image, resp)// TODO
-	}
-
-	return c.orchStartVM(ctx, image)
-}
-
-func (c *coordinator) allocFuncInstance(ctx context.Context, image string) (*funcInstance, error) {
-	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
-	logger := log.WithFields(
-		log.Fields{
-			"vmID":  vmID,
-			"image": image,
-		},
-	)
-
-	logger.Debug("allocating new instance for snapshot")
-
-	var (
-		resp *ctriface.StartVMResponse
-		err  error
-	)
-
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*40)
-	defer cancel()
-
-	if !c.withoutOrchestrator {
-		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image)
-		if err != nil {
-			logger.WithError(err).Error("coordinator failed to start VM")
+// Called upon createcontainer CRI request
+func (c *coordinator) startVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+	if c.orch != nil && c.orch.GetSnapshotsEnabled()  {
+		if snap, err := c.snapshotManager.AcquireSnapshot(revision); err == nil {
+			if snap.MemSizeMib != memSizeMib || snap.VCPUCount != vCPUCount {
+				return nil, errors.New("Please create a new revision when updating uVM memory size or vCPU count")
+			} else {
+				return c.orchStartVMSnapshot(ctx, snap, memSizeMib, vCPUCount)
+			}
+		} else {
+			return c.orchStartVM(ctx, image, revision, memSizeMib, vCPUCount)
 		}
 	}
 
-	fi := newFuncInstance(vmID, image, resp)
-	logger.Debug("successfully created fresh instance")
-	return fi, err
+	return c.orchStartVM(ctx, image, revision, memSizeMib, vCPUCount)
 }
 
+// Called upon removecontainer CRI request
 func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 	c.Lock()
 
-	fi, ok := c.activeInstances[containerID]
-	delete(c.activeInstances, containerID)
+	fi, present := c.activeInstances[containerID]
+	if present {
+		delete(c.activeInstances, containerID)
+	}
 
 	c.Unlock()
 
-	if !ok {
-		return nil
-	}
-
-	if c.orch != nil && c.orch.GetSnapshotsEnabled() {
-		return c.orchOffloadInstance(ctx, fi)
+	if fi.snapBooted {
+		defer c.snapshotManager.ReleaseSnapshot(fi.revisionId)
+	} else if c.orch != nil && c.orch.GetSnapshotsEnabled() {
+		_ = c.orchCreateSnapshot(ctx, fi)
 	}
 
 	return c.orchStopVM(ctx, fi)
@@ -185,6 +121,7 @@ func (c *coordinator) isActive(containerID string) bool {
 	return ok
 }
 
+// Adds an active function instance
 func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 	c.Lock()
 	defer c.Unlock()
@@ -200,7 +137,8 @@ func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 	return nil
 }
 
-func (c *coordinator) orchStartVM(ctx context.Context, image string) (*funcInstance, error) {
+func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+	tStart := time.Now()
 	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
 	logger := log.WithFields(
 		log.Fields{
@@ -220,86 +158,94 @@ func (c *coordinator) orchStartVM(ctx context.Context, image string) (*funcInsta
 	defer cancel()
 
 	if !c.withoutOrchestrator {
-		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image)
+		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount)
 		if err != nil {
 			logger.WithError(err).Error("coordinator failed to start VM")
 		}
 	}
 
-	fi := newFuncInstance(vmID, image, resp)
+	coldStartTimeMs := metrics.ToMs(time.Since(tStart))
+	fi := newFuncInstance(vmID, image, revision, resp, false, memSizeMib, vCPUCount, coldStartTimeMs)
 	logger.Debug("successfully created fresh instance")
 	return fi, err
 }
 
-func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) error {
-	fi.logger.Debug("found idle instance to load")
+func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshotting.Snapshot, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+	tStart := time.Now()
+	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
+	logger := log.WithFields(
+		log.Fields{
+			"vmID":  vmID,
+			"image": snap.GetImage(),
+		},
+	)
+
+	logger.Debug("loading instance from snapshot")
+
+	var (
+		resp *ctriface.StartVMResponse
+		err  error
+	)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	if _, err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID, fi.image); err != nil {
-		fi.logger.WithError(err).Error("failed to load VM")
-		return err
+	resp, _, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap)
+	if err != nil {
+		logger.WithError(err).Error("failed to load VM")
+		return nil, err
 	}
 
-	if _, err := c.orch.ResumeVM(ctxTimeout, fi.vmID); err != nil {
-		fi.logger.WithError(err).Error("failed to load VM")
-		return err
+	if _, err := c.orch.ResumeVM(ctxTimeout, vmID); err != nil {
+		logger.WithError(err).Error("failed to load VM")
+		return nil, err
 	}
 
-	fi.logger.Debug("successfully loaded idle instance")
-	return nil
+	coldStartTimeMs := metrics.ToMs(time.Since(tStart))
+	fi := newFuncInstance(vmID, snap.GetImage(), snap.GetRevisionId(), resp, true, memSizeMib, vCPUCount, coldStartTimeMs)
+	logger.Debug("successfully loaded instance from snapshot")
+	return fi, err
 }
 
 func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) error {
-	var err error
-
-	snapInstance := c.getSnapinstance(fi.image)
-
-	// Only create snapshot once for a given image
-	snapInstance.onceCreateSnapInstance.Do(
-		func() {
-			ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
-			defer cancel()
-
-			fi.logger.Debug("creating instance snapshot on first time offloading")
-
-			err = c.orch.PauseVM(ctxTimeout, fi.vmID)
-			if err != nil {
-				fi.logger.WithError(err).Error("failed to pause VM")
-				return
-			}
-
-			err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, fi.image)
-			if err != nil {
-				fi.logger.WithError(err).Error("failed to create snapshot")
-				return
-			}
-			snapInstance.created = true
+	logger := log.WithFields(
+		log.Fields{
+			"vmID":  fi.vmID,
+			"image": fi.image,
 		},
 	)
 
-	return err
-}
+	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount); err == nil {
+		// TODO: maybe needs to be longer
+		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
+		defer cancel()
 
-func (c *coordinator) orchOffloadInstance(ctx context.Context, fi *funcInstance) error {
-	fi.logger.Debug("offloading instance")
+		logger.Debug("creating instance snapshot before stopping")
 
-	if err := c.orchCreateSnapshot(ctx, fi); err != nil {
-		return err
+		err = c.orch.PauseVM(ctxTimeout, fi.vmID)
+		if err != nil {
+			logger.WithError(err).Error("failed to pause VM")
+			return nil
+		}
+
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
+		if err != nil {
+			fi.logger.WithError(err).Error("failed to create snapshot")
+			return nil
+		}
+
+		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
+			fi.logger.WithError(err).Error("failed to commit snapshot")
+			return err
+		}
+	} else {
+		fi.logger.Warn("Not enough space for snapshot")
+		return nil
 	}
-
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-
-	if err := c.orch.Offload(ctxTimeout, fi.vmID); err != nil {
-		fi.logger.WithError(err).Error("failed to offload instance")
-	}
-
-	c.setIdleInstance(fi)
 
 	return nil
 }
+
 
 func (c *coordinator) orchStopVM(ctx context.Context, fi *funcInstance) error {
 	if c.withoutOrchestrator {

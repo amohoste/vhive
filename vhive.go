@@ -78,11 +78,11 @@ func main() {
 	criSock = flag.String("criSock", "/etc/firecracker-containerd/fccd-cri.sock", "Socket address for CRI service")
 
 	// Orch arguments
-	snapshotter := flag.String("ss", "devmapper", "snapshotter name")
+	snapsCapacityMiB := flag.Int64("snapcapacity", 102400, "Capacity set aside for storing snapshots (Mib)")
+	isSparseSnaps := flag.Bool("sparsesnaps", false, "Makes memory files sparse after storing to reduce disk utilization")
 	isSnapshotsEnabled = flag.Bool("snapshots", false, "Use VM snapshots when adding function instances")
-	isUPFEnabled = flag.Bool("upf", false, "Enable user-level page faults guest memory management")
 	isMetricsMode = flag.Bool("metrics", false, "Calculate UPF metrics")
-	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
+	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled") // TODO: what's lazy mode
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 
 	// Funcpool arguments (benchmarking & tests)
@@ -132,18 +132,16 @@ func main() {
 
 	// Run vHive components
 	orch = ctriface.NewOrchestrator(
-		*snapshotter,
 		*hostIface,
 		ctriface.WithTestModeOn(testModeOn),
 		ctriface.WithSnapshots(*isSnapshotsEnabled),
-		ctriface.WithUPF(*isUPFEnabled),
 		ctriface.WithMetricsMode(*isMetricsMode),
 		ctriface.WithLazyMode(*isLazyMode),
 	)
 
 	funcPool = NewFuncPool(*isSaveMemory, *servedThreshold, *pinnedFuncNum, testModeOn)
 
-	go criServe()
+	go criServe(*snapsCapacityMiB, *isSparseSnaps)
 	go orchServe()
 	fwdServe()
 }
@@ -157,7 +155,7 @@ type fwdServer struct {
 }
 
 // Serve K8S CRI requests on specified socket
-func criServe() {
+func criServe(snapsCapacityMiB int64, isSparseSnaps bool) {
 	lis, err := net.Listen("unix", *criSock)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -165,7 +163,7 @@ func criServe() {
 
 	s := grpc.NewServer()
 
-	criService, err := fccdcri.NewService(orch)
+	criService, err := fccdcri.NewService(orch, snapsCapacityMiB, isSparseSnaps)
 	if err != nil {
 		log.Fatalf("failed to create CRI service %v", err)
 	}

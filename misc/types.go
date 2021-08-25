@@ -23,33 +23,39 @@
 package misc
 
 import (
+	"fmt"
+	"github.com/ease-lab/vhive/networking"
 	"sync"
 
 	"github.com/containerd/containerd"
-
-	"github.com/ease-lab/vhive/taps"
 )
 
 // VM type
 type VM struct {
-	ID        string
-	Image     *containerd.Image
-	Container *containerd.Container
-	Task      *containerd.Task
-	TaskCh    <-chan containerd.ExitStatus
-	Ni        *taps.NetworkInterface
+	ID               string
+	ContainerSnapKey string
+	SnapBooted       bool
+	Image            *containerd.Image
+	Container        *containerd.Container
+	Task             *containerd.Task
+	ExitStatusCh     <-chan containerd.ExitStatus
+	NetConfig        *networking.NetworkConfig
+	VCPUCount        uint32
+	MemSizeMib       uint32
 }
 
 // VMPool Pool of active VMs (can be in several states though)
 type VMPool struct {
-	vmMap      sync.Map
-	tapManager *taps.TapManager
+	vmMap          sync.Map
+	networkManager *networking.NetworkManager
 }
 
 // NewVM Initialize a VM
 func NewVM(vmID string) *VM {
 	vm := new(VM)
 	vm.ID = vmID
+	vm.ContainerSnapKey = fmt.Sprintf("vm%s-containersnap", vmID)
+	vm.SnapBooted = false
 
 	return vm
 }

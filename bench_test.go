@@ -171,17 +171,6 @@ func TestBenchWarmServe(t *testing.T) {
 	message, err := funcPool.RemoveInstance(vmIDString, imageName, isSyncOffload)
 	require.NoError(t, err, "Function returned error, "+message)
 
-	// FUSE
-	if orch.GetUPFEnabled() {
-		// Page stats
-		err = funcPool.DumpUPFPageStats(vmIDString, imageName, *funcName, getOutFile("pageStats.csv"))
-		require.NoError(t, err, "Failed to dump page stats for"+*funcName)
-
-		memManagerMetrics, err = orch.GetUPFLatencyStats(vmIDString + "_0")
-		require.NoError(t, err, "Failed to dump get stats for "+*funcName)
-		require.Equal(t, len(serveMetrics), len(memManagerMetrics), "different metrics lengths")
-	}
-
 	fusePrintMetrics(t, serveMetrics, memManagerMetrics, isUPFEnabledTest, true, *funcName, "serve.csv")
 
 	appendMemFootprint(getOutFile("serve.csv"), memFootprint)
@@ -238,16 +227,6 @@ func TestBenchServe(t *testing.T) {
 		time.Sleep(3 * time.Second) // this helps kworker hanging
 	}
 
-	// FUSE
-	if orch.GetUPFEnabled() {
-		// Page stats
-		err = funcPool.DumpUPFPageStats(vmIDString, imageName, *funcName, getOutFile("pageStats.csv"))
-		require.NoError(t, err, "Failed to dump page stats for"+*funcName)
-
-		memManagerMetrics, err = orch.GetUPFLatencyStats(vmIDString + "_0")
-		require.NoError(t, err, "Failed to dump get stats for "+*funcName)
-		require.Equal(t, len(serveMetrics), len(memManagerMetrics), "different metrics lengths")
-	}
 
 	fusePrintMetrics(t, serveMetrics, memManagerMetrics, isUPFEnabledTest, true, *funcName, "serve.csv")
 

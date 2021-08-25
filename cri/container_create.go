@@ -25,18 +25,24 @@ package cri
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
 const (
-	userContainerName = "user-container"
-	queueProxyName    = "queue-proxy"
-	guestIPEnv        = "GUEST_ADDR"
-	guestPortEnv      = "GUEST_PORT"
-	guestImageEnv     = "GUEST_IMAGE"
-	guestPortValue    = "50051"
+	userContainerName     = "user-container"
+	queueProxyName        = "queue-proxy"
+	revisionEnv           = "K_REVISION"
+	guestIPEnv            = "GUEST_ADDR"
+	guestPortEnv          = "GUEST_PORT"
+	guestImageEnv         = "GUEST_IMAGE"
+	guestMemorySizeMibEnv = "GUEST_MEM_SIZE_MIB"
+	defaultMemorySizeMib  = 256
+	guestvCPUCount        = "GUEST_VCPU_COUNT"
+	defaultvCPUCount      = 1
+	guestPortValue        = "50051"
 )
 
 // CreateContainer starts a container or a VM, depending on the name
@@ -67,28 +73,51 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 		stockDone = make(chan struct{})
 	)
 
+	// Create placeholder user container
 	go func() {
 		defer close(stockDone)
 		stockResp, stockErr = s.stockRuntimeClient.CreateContainer(ctx, r)
 	}()
 
+	// Get config variables
 	config := r.GetConfig()
+
 	guestImage, err := getGuestImage(config)
 	if err != nil {
 		log.WithError(err).Error()
 		return nil, err
 	}
 
-	funcInst, err := s.coordinator.startVM(context.Background(), guestImage)
+	revision, err := getRevisionId(config)
+	if err != nil {
+		log.WithError(err).Error()
+		return nil, err
+	}
+
+	memSizeMib, err := getMemorySize(config)
+	if err != nil {
+		log.WithError(err).Error()
+		return nil, err
+	}
+
+	vCPUCount, err := getvCPUCount(config)
+	if err != nil {
+		log.WithError(err).Error()
+		return nil, err
+	}
+
+	// Start vm
+	funcInst, err := s.coordinator.startVM(context.Background(), guestImage, revision, memSizeMib, vCPUCount)
 	if err != nil {
 		log.WithError(err).Error("failed to start VM")
 		return nil, err
 	}
 
+	// Temporarily store vm config so we can access this info when creating the queue-proxy container
 	vmConfig := &VMConfig{guestIP: funcInst.startVMResponse.GuestIP, guestPort: guestPortValue}
 	s.insertPodVMConfig(r.GetPodSandboxId(), vmConfig)
 
-	// Wait for placeholder UC to be created
+	// Wait for placeholder user container to be created
 	<-stockDone
 
 	// Check for error from container creation
@@ -139,5 +168,50 @@ func getGuestImage(config *criapi.ContainerConfig) (string, error) {
 	}
 
 	return "", errors.New("failed to provide non empty guest image in user container config")
+}
 
+func getRevisionId(config *criapi.ContainerConfig) (string, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == revisionEnv  {
+			return kv.GetValue(), nil
+		}
+
+	}
+
+	return "", errors.New("failed to provide non empty guest image in user container config")
+}
+
+func getMemorySize(config *criapi.ContainerConfig) (uint32, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == guestMemorySizeMibEnv {
+			memSize, err := strconv.Atoi(kv.GetValue())
+			if err == nil {
+				return uint32(memSize), nil
+			} else {
+				return 0, err
+			}
+		}
+
+	}
+
+	return defaultMemorySizeMib, nil
+}
+
+func getvCPUCount(config *criapi.ContainerConfig) (uint32, error) {
+	envs := config.GetEnvs()
+	for _, kv := range envs {
+		if kv.GetKey() == guestvCPUCount {
+			vCPUCount, err := strconv.Atoi(kv.GetValue())
+			if err == nil {
+				return uint32(vCPUCount), nil
+			} else {
+				return 0, err
+			}
+		}
+
+	}
+
+	return defaultvCPUCount, nil
 }
