@@ -6,6 +6,14 @@ go 1.15
 replace github.com/docker/distribution v2.7.1+incompatible => github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible
 
 replace (
+	// Pin gPRC-related dependencies as like containerd v1.5.2
+	github.com/gogo/googleapis => github.com/gogo/googleapis v1.3.2
+	github.com/golang/protobuf => github.com/golang/protobuf v1.3.5
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20200224152610-e50cd9704f63
+	google.golang.org/grpc => google.golang.org/grpc v1.27.1
+)
+
+replace (
 	github.com/coreos/go-systemd => github.com/coreos/go-systemd v0.0.0-20161114122254-48702e0da86b
 	k8s.io/api => k8s.io/api v0.16.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.16.6
