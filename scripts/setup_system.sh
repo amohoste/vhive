@@ -40,6 +40,7 @@ sudo apt-get -y install \
     make \
     acl \
     net-tools \
+    lsb-release \
     git-lfs \
     bc \
     gettext-base \
@@ -48,6 +49,7 @@ sudo apt-get -y install \
     gnupg-agent \
     software-properties-common \
     iproute2 \
+    pigz \
     skopeo >> /dev/null
 
 

@@ -1,5 +1,5 @@
 disabled_plugins = ["cri"]
-root = "/fccd/var/lib/firecracker-containerd/containerd" # Changed!
+root = "/var/lib/firecracker-containerd/containerd"
 state = "/run/firecracker-containerd"
 [grpc]
   address = "/run/firecracker-containerd/containerd.sock"
@@ -7,7 +7,7 @@ state = "/run/firecracker-containerd"
   [plugins.devmapper]
     pool_name = "fc-dev-thinpool"
     base_image_size = "10GB"
-    root_path = "/fccd/var/lib/firecracker-containerd/snapshotter/devmapper" # Changed!
+    root_path = "/var/lib/firecracker-containerd/snapshotter/devmapper"
 
 [debug]
   level = "debug"
