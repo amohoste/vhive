@@ -114,7 +114,7 @@ func main() {
 	)
 
 	go criServe(*snapsCapacityMiB, *isSparseSnaps)
-	go orchServe()
+	orchServe()
 }
 
 type server struct {
