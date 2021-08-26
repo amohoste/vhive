@@ -46,7 +46,6 @@ replace (
 	github.com/containerd/containerd => github.com/amohoste/containerd v1.5.5-ids
 	github.com/ease-lab/vhive/examples/protobuf/helloworld => ./examples/protobuf/helloworld
 	github.com/firecracker-microvm/firecracker-containerd => github.com/amohoste/firecracker-containerd v1.0.0-ids
-	github.com/firecracker-microvm/firecracker-go-sdk => github.com/ease-lab/firecracker-go-sdk v0.20.1-0.20200625102438-8edf287b0123
 )
 
 require (
