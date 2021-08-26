@@ -196,7 +196,7 @@ func getMemorySize(config *criapi.ContainerConfig) (uint32, error) {
 
 	}
 
-	return uint32(defaultMemorySizeMib), nil
+	return uint32(512), nil
 }
 
 func getvCPUCount(config *criapi.ContainerConfig) (uint32, error) {
@@ -213,5 +213,5 @@ func getvCPUCount(config *criapi.ContainerConfig) (uint32, error) {
 
 	}
 
-	return uint32(defaultvCPUCount), nil
+	return uint32(1), nil
 }
