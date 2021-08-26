@@ -33,6 +33,8 @@ sudo apt-get -y install \
     apt-transport-https \
     ca-certificates \
     curl \
+    e2fsprogs \
+    util-linux \
     gcc \
     g++ \
     make \
