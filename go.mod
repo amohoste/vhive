@@ -53,7 +53,7 @@ require (
 	github.com/containerd/containerd v1.5.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ease-lab/vhive/examples/protobuf/helloworld v0.0.0-00010101000000-000000000000
-	github.com/firecracker-microvm/firecracker-containerd v0.0.0-00010101000000-000000000000
+	github.com/firecracker-microvm/firecracker-containerd v0.0.0-20210604232636-c2323bc71886
 	github.com/ftrvxmtrx/fd v0.0.0-20150925145434-c6d800382fff
 	github.com/go-multierror/multierror v1.0.2
 	github.com/gogo/googleapis v1.4.1 // indirect
@@ -73,4 +73,10 @@ require (
 	gonum.org/v1/plot v0.9.0
 	google.golang.org/grpc v1.34.0
 	k8s.io/cri-api v0.20.6
+	github.com/antchfx/xpath v1.2.0 // indirect
+	github.com/coreos/go-iptables v0.5.0
+	github.com/opencontainers/image-spec v1.0.1
+	github.com/tamerh/xml-stream-parser v1.4.0
+	github.com/tamerh/xpath v1.0.0 // indirect
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 )
