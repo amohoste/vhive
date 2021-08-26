@@ -39,9 +39,7 @@ const (
 	guestPortEnv          = "GUEST_PORT"
 	guestImageEnv         = "GUEST_IMAGE"
 	guestMemorySizeMibEnv = "GUEST_MEM_SIZE_MIB"
-	defaultMemorySizeMib  = 256
 	guestvCPUCount        = "GUEST_VCPU_COUNT"
-	defaultvCPUCount      = 1
 	guestPortValue        = "50051"
 )
 
@@ -196,7 +194,7 @@ func getMemorySize(config *criapi.ContainerConfig) (uint32, error) {
 
 	}
 
-	return defaultMemorySizeMib, nil
+	return 256, nil
 }
 
 func getvCPUCount(config *criapi.ContainerConfig) (uint32, error) {
@@ -213,5 +211,5 @@ func getvCPUCount(config *criapi.ContainerConfig) (uint32, error) {
 
 	}
 
-	return defaultvCPUCount, nil
+	return 1, nil
 }
