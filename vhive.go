@@ -24,7 +24,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"math/rand"
 	"net"
 	"os"
@@ -50,13 +49,9 @@ var (
 	orch     *ctriface.Orchestrator
 	funcPool *FuncPool
 
-	isSaveMemory       *bool
 	isSnapshotsEnabled *bool
-	isUPFEnabled       *bool
 	isLazyMode         *bool
 	isMetricsMode      *bool
-	servedThreshold    *uint64
-	pinnedFuncNum      *int
 	criSock            *string
 	hostIface          *string
 )
@@ -83,23 +78,8 @@ func main() {
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled") // TODO: what's lazy mode
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 
-	// Funcpool arguments (benchmarking & tests)
-	isSaveMemory = flag.Bool("ms", false, "Enable memory saving")
-	servedThreshold = flag.Uint64("st", 1000*1000, "Functions serves X RPCs before it shuts down (if saveMemory=true)")
-	pinnedFuncNum = flag.Int("hn", 0, "Number of functions pinned in memory (IDs from 0 to X)")
-
 	// Parse cmd line arguments
 	flag.Parse()
-
-	if *isUPFEnabled && !*isSnapshotsEnabled {
-		log.Error("User-level page faults are not supported without snapshots")
-		return
-	}
-
-	if !*isUPFEnabled && *isLazyMode {
-		log.Error("Lazy page fault serving mode is not supported without user-level page faults")
-		return
-	}
 
 	// Setup logging
 	if flog, err = os.Create("/tmp/fccd.log"); err != nil {
@@ -120,10 +100,6 @@ func main() {
 		log.Debug("Debug logging is enabled")
 	} else {
 		log.SetLevel(log.InfoLevel)
-	}
-
-	if *isSaveMemory {
-		log.Info(fmt.Sprintf("Creating orchestrator for pinned=%d functions", *pinnedFuncNum))
 	}
 
 	testModeOn := false
