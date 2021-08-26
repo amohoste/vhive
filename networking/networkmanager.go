@@ -252,7 +252,7 @@ func (mgr *NetworkManager) Cleanup() error {
 	mgr.Lock()
 	defer mgr.Unlock()
 
-	for vmID, _ := range mgr.netConfigs {
+	for vmID := range mgr.netConfigs {
 		err := mgr.RemoveNetwork(vmID)
 		log.Warnf("Failed to remove network for vm %s: %v\n", vmID, err)
 	}
