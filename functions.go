@@ -357,7 +357,7 @@ func (f *Function) AddInstance() *metrics.Metric {
 	if f.isSnapshotReady {
 		metr = f.LoadInstance()
 	} else {
-		resp, _, err := orch.StartVM(ctx, f.getVMID(), f.imageName)
+		resp, _, err := orch.StartVM(ctx, f.getVMID(), f.imageName, 1, 256)
 		f.guestIP = resp.GuestIP
 		if err != nil {
 			log.Panic(err)
@@ -452,7 +452,7 @@ func (f *Function) CreateInstanceSnapshot() {
 		log.Panic(err)
 	}
 
-	err = orch.CreateSnapshot(ctx, f.vmID, f.imageName)
+	err = orch.CreateSnapshot(ctx, f.vmID, nil, true)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -472,7 +472,7 @@ func (f *Function) OffloadInstance() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
-	err := orch.Offload(ctx, f.vmID)
+	err := orch.StopSingleVM(ctx, f.vmID)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -489,7 +489,7 @@ func (f *Function) LoadInstance() *metrics.Metric {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	loadMetr, err := orch.LoadSnapshot(ctx, f.vmID, f.imageName)
+	_, loadMetr, err := orch.LoadSnapshot(ctx, f.vmID, nil)
 	if err != nil {
 		log.Panic(err)
 	}

@@ -23,7 +23,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -34,7 +33,6 @@ import (
 	ctrdlog "github.com/containerd/containerd/log"
 	fccdcri "github.com/ease-lab/vhive/cri"
 	ctriface "github.com/ease-lab/vhive/ctriface"
-	hpb "github.com/ease-lab/vhive/examples/protobuf/helloworld"
 	pb "github.com/ease-lab/vhive/proto"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -139,19 +137,12 @@ func main() {
 		ctriface.WithLazyMode(*isLazyMode),
 	)
 
-	funcPool = NewFuncPool(*isSaveMemory, *servedThreshold, *pinnedFuncNum, testModeOn)
-
 	go criServe(*snapsCapacityMiB, *isSparseSnaps)
 	go orchServe()
-	fwdServe()
 }
 
 type server struct {
 	pb.UnimplementedOrchestratorServer
-}
-
-type fwdServer struct {
-	hpb.UnimplementedFwdGreeterServer
 }
 
 // Serve K8S CRI requests on specified socket
@@ -188,73 +179,4 @@ func orchServe() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
-}
-
-// Probably for debugging?
-func fwdServe() {
-	lis, err := net.Listen("tcp", fwdPort)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	s := grpc.NewServer()
-	hpb.RegisterFwdGreeterServer(s, &fwdServer{})
-
-	log.Println("Listening on port" + fwdPort)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
-// StartVM, StopSingleVM and StopVMs are legacy functions that manage functions and VMs
-// Should be used only to bootstrap an experiment (e.g., quick parallel start of many functions)
-func (s *server) StartVM(ctx context.Context, in *pb.StartVMReq) (*pb.StartVMResp, error) {
-	fID := in.GetId()
-	imageName := in.GetImage()
-	log.WithFields(log.Fields{"fID": fID, "image": imageName}).Info("Received direct StartVM")
-
-	tProfile := "not supported anymore"
-
-	_, _, err := funcPool.Serve(ctx, fID, imageName, "record")
-	if err != nil {
-		return &pb.StartVMResp{Message: "First serve failed", Profile: tProfile}, err
-	}
-
-	return &pb.StartVMResp{Message: "started VM instance for a function " + fID, Profile: tProfile}, nil
-}
-
-func (s *server) StopSingleVM(ctx context.Context, in *pb.StopSingleVMReq) (*pb.Status, error) {
-	fID := in.GetId()
-	isSync := true
-	log.WithFields(log.Fields{"fID": fID}).Info("Received direct StopVM")
-	message, err := funcPool.RemoveInstance(fID, "bogus imageName", isSync)
-	if err != nil {
-		log.Warn(message, err)
-	}
-
-	return &pb.Status{Message: message}, err
-}
-
-// Note: this function is to be used only before tearing down the whole orchestrator
-func (s *server) StopVMs(ctx context.Context, in *pb.StopVMsReq) (*pb.Status, error) {
-	log.Info("Received StopVMs")
-	err := orch.StopActiveVMs()
-	if err != nil {
-		log.Printf("Failed to stop VMs, err: %v\n", err)
-		return &pb.Status{Message: "Failed to stop VMs"}, err
-	}
-	os.Exit(0)
-	return &pb.Status{Message: "Stopped VMs"}, nil
-}
-
-// Probably also for debugging / benchmarking
-func (s *fwdServer) FwdHello(ctx context.Context, in *hpb.FwdHelloReq) (*hpb.FwdHelloResp, error) {
-	fID := in.GetId()
-	imageName := in.GetImage()
-	payload := in.GetPayload()
-
-	logger := log.WithFields(log.Fields{"fID": fID, "image": imageName, "payload": payload})
-	logger.Debug("Received FwdHelloVM")
-
-	resp, _, err := funcPool.Serve(ctx, fID, imageName, payload)
-	return resp, err
 }
