@@ -202,7 +202,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 
 	logger.Debug("Successfully started a VM")
 
-	return &StartVMResponse{GuestIP: vm.NetConfig.GetContainerCIDR()}, startVMMetric, nil
+	return &StartVMResponse{GuestIP: vm.NetConfig.GetCloneIP()}, startVMMetric, nil
 }
 
 
@@ -547,5 +547,5 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 
 	vm.SnapBooted = true
 
-	return &StartVMResponse{GuestIP: vm.NetConfig.GetContainerCIDR()}, loadSnapshotMetric, nil
+	return &StartVMResponse{GuestIP: vm.NetConfig.GetCloneIP()}, loadSnapshotMetric, nil
 }
