@@ -38,9 +38,9 @@ const (
 	guestIPEnv            = "GUEST_ADDR"
 	guestPortEnv          = "GUEST_PORT"
 	guestImageEnv         = "GUEST_IMAGE"
-	guestMemorySizeMibEnv = "GUEST_MEM_SIZE_MIB"
+	guestMemorySizeMibEnv = "MEM_SIZE_MB"
 	defaultMemorySizeMib  = 256
-	guestvCPUCount        = "GUEST_VCPU_COUNT"
+	guestvCPUCount        = "VCPU_COUNT"
 	defaultvCPUCount      = 1
 	guestPortValue        = "50051"
 )
