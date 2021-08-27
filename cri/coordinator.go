@@ -108,6 +108,11 @@ func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 
 	c.Unlock()
 
+	// Not a request to remove vm container
+	if !present {
+		return nil
+	}
+
 	if fi.snapBooted {
 		defer c.snapshotManager.ReleaseSnapshot(fi.revisionId)
 	} else if c.orch != nil && c.orch.GetSnapshotsEnabled() {
