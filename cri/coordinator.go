@@ -24,6 +24,7 @@ package cri
 
 import (
 	"context"
+	"fmt"
 	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/snapshotting"
 	"github.com/pkg/errors"
@@ -100,6 +101,10 @@ func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 	if present {
 		delete(c.activeInstances, containerID)
 	}
+	fmt.Printf("Terminating %s\n", containerID)
+	fmt.Printf("T.Activeinstances: %s\n", c.activeInstances)
+	fmt.Printf("T.Present: %s\n", present)
+	fmt.Printf("T.Fi: %s\n", fi)
 
 	c.Unlock()
 
@@ -134,6 +139,12 @@ func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 	}
 
 	c.activeInstances[containerID] = fi
+
+	fmt.Printf("Added %s\n", containerID)
+	fmt.Printf("A.Activeinstances: %s\n", c.activeInstances)
+	fmt.Printf("A.Fi: %s\n", fi)
+
+
 	return nil
 }
 
