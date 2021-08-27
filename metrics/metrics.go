@@ -35,28 +35,15 @@ import (
 )
 
 const (
+	// A. uVM Creation
+	// A.1 Time to add a VM to the pool and setup its networking
+	AllocateVM = "allocateVM"
+	// A.2 GetImage Time to pull docker image
+	GetImage = "GetImage"
+
 	// A. Boot scratch
 
-	// B. Boot snapshots
-	// B.1 Boot local snapshot
 
-	// B.2 Boot remote snapshot
-
-	// FcResume Time it takes to resume a VM from containerd
-	FcResume = "FcResume"
-
-	// LoadVMM Name of LoadVMM metric
-	LoadVMM = "LoadVMM"
-
-	// AddInstance Time to add instance - load snap or start vm
-	AddInstance = "AddInstance"
-	// FuncInvocation Time to get response from function
-	FuncInvocation = "FuncInvocation"
-	// RetireOld Time to offload/stop instance if threshold exceeded
-	RetireOld = "RetireOld"
-
-	// GetImage Time to pull docker image
-	GetImage = "GetImage"
 	// FcCreateVM Time to create VM
 	FcCreateVM = "FcCreateVM"
 	// NewContainer Time to create new container
@@ -68,9 +55,37 @@ const (
 	// TaskStart Time to start task
 	TaskStart = "TaskStart"
 
+	// B. Boot snapshots
+	// CreateDeviceSnap Time to create a snapshot from the container from an image
+	CreateDeviceSnap = "CreateDeviceSnapshot"
+	// CreateDeviceSnap Time to apply a patch to the container snapshot
+	RestorePatch = "RestorePatch"
+	// FcLoadSnapshot Time it takes to boot the snapshot
+	FcLoadSnapshot = "FcLoadSnapshot"
+
+	// FcResume Time it takes to resume a VM from containerd
+	FcResume = "FcResume"
+
+	// C. Create snapshots
+
+
+
+
+
+
+
+
+
 	// functions.go stuff
 	// ConnectFuncClient Time it takes to reconnect function client
 	ConnectFuncClient = "ConnectFuncClient"
+	// AddInstance Time to add instance - load snap or start vm
+	AddInstance = "AddInstance"
+	// FuncInvocation Time to get response from function
+	FuncInvocation = "FuncInvocation"
+	// RetireOld Time to offload/stop instance if threshold exceeded
+	RetireOld = "RetireOld"
+
 )
 
 // Metric A general metric

@@ -206,7 +206,7 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 		err  error
 	)
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*120) // TODO: set to 30
 	defer cancel()
 
 	resp, _, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap)

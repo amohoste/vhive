@@ -76,6 +76,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 	logger.Debug("StartVM: Received StartVM")
 
 	// 1. Allocate VM metadata & create vm network
+	tStart = time.Now()
 	vm, err := o.vmPool.Allocate(vmID)
 	if err != nil {
 		logger.Error("failed to allocate VM in VM pool")
@@ -83,6 +84,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 	}
 	vm.VCPUCount = vCPUCount
 	vm.MemSizeMib = memSizeMib
+	startVMMetric.MetricMap[metrics.AllocateVM] = metrics.ToUS(time.Since(tStart))
 
 	defer func() {
 		// Free the VM from the pool if function returns error
@@ -230,23 +232,25 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 	logger = log.WithFields(log.Fields{"vmID": vmID})
 
 	if ! vm.SnapBooted {
+		fmt.Printf("Killing task %s\n", *vm.Task)
 		task := *vm.Task
 		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
 			logger.WithError(err).Error("Failed to kill the task")
 			return err
 		}
-		fmt.Println("Killing task")
 
+		fmt.Printf("Waiting for task exit\n")
 		<-vm.ExitStatusCh
 		//FIXME: Seems like some tasks need some extra time to die Issue#15, lr_training
 		time.Sleep(500 * time.Millisecond)
 
+		fmt.Println("Deleting task")
 		if _, err := task.Delete(ctx); err != nil {
 			logger.WithError(err).Error("failed to delete task")
 			return err
 		}
-		fmt.Println("Deleting task")
 
+		fmt.Println("Deleting container")
 		container := *vm.Container
 		if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
 			logger.WithError(err).Error("failed to delete container")
@@ -503,12 +507,14 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 
 	ctx = namespaces.WithNamespace(ctx, namespaceName)
 
-	// 1. Allocate VM metadata & create vm network TODO: vcpucount etc?
+	// 1. Allocate VM metadata & create vm network
+	tStart = time.Now()
 	vm, err := o.vmPool.Allocate(vmID)
 	if err != nil {
 		logger.Error("failed to allocate VM in VM pool")
 		return nil, nil, err
 	}
+	loadSnapshotMetric.MetricMap[metrics.AllocateVM] = metrics.ToUS(time.Since(tStart))
 
 	defer func() {
 		// Free the VM from the pool if function returns error
@@ -520,14 +526,18 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 	}()
 
 	// 2. Fetch image for VM
+	tStart = time.Now()
 	if vm.Image, err = o.getImage(ctx, snap.GetImage()); err != nil {
 		return nil, nil, errors.Wrapf(err, "Failed to get/pull image")
 	}
+	loadSnapshotMetric.MetricMap[metrics.GetImage] = metrics.ToUS(time.Since(tStart))
 
 	// 3. Create snapshot for container to run
+	tStart = time.Now()
 	if err := o.devMapper.CreateDeviceSnapshotFromImage(ctx, vm.ContainerSnapKey, *vm.Image); err != nil {
 		return nil, nil, errors.Wrapf(err, "creating container snapshot")
 	}
+	loadSnapshotMetric.MetricMap[metrics.CreateDeviceSnap] = metrics.ToUS(time.Since(tStart))
 
 	containerSnap, err := o.devMapper.GetDeviceSnapshot(ctx, vm.ContainerSnapKey)
 	if err != nil {
@@ -535,9 +545,11 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 	}
 
 	// 5. Unpack patch into container snapshot
+	tStart = time.Now()
 	if err := o.devMapper.RestorePatch(ctx, vm.ContainerSnapKey, snap.GetPatchFilePath()); err != nil {
 		return nil, nil, errors.Wrapf(err, "unpacking patch into container snapshot")
 	}
+	loadSnapshotMetric.MetricMap[metrics.RestorePatch] = metrics.ToUS(time.Since(tStart))
 
 	// 6. Load VM from snapshot
 	req := &proto.LoadSnapshotRequest{
@@ -555,7 +567,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 		logger.Error("Failed to load snapshot of the VM: ", err)
 		return nil, nil, err
 	}
-	loadSnapshotMetric.MetricMap[metrics.LoadVMM] = metrics.ToUS(time.Since(tStart))
+	loadSnapshotMetric.MetricMap[metrics.FcLoadSnapshot] = metrics.ToUS(time.Since(tStart))
 
 	vm.SnapBooted = true
 
