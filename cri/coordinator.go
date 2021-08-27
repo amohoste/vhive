@@ -116,7 +116,10 @@ func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 	if fi.snapBooted {
 		defer c.snapshotManager.ReleaseSnapshot(fi.revisionId)
 	} else if c.orch != nil && c.orch.GetSnapshotsEnabled() {
-		_ = c.orchCreateSnapshot(ctx, fi)
+		err := c.orchCreateSnapshot(ctx, fi)
+		if err != nil {
+			fmt.Printf("Err creating snapshot %s\n", err)
+		}
 	}
 
 	return c.orchStopVM(ctx, fi)
@@ -231,12 +234,15 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		},
 	)
 
+	fmt.Printf("Initializing snapshot for revision %s\n", fi.revisionId)
+
 	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount); err == nil {
 		// TODO: maybe needs to be longer
 		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 		defer cancel()
 
 		logger.Debug("creating instance snapshot before stopping")
+		fmt.Printf("Pausing vm %s\n", fi.vmID)
 
 		err = c.orch.PauseVM(ctxTimeout, fi.vmID)
 		if err != nil {
@@ -244,12 +250,14 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 			return nil
 		}
 
+		fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
 		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
 		}
 
+		fmt.Printf("Committing snapshot for revision %s\n", fi.revisionId)
 		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
 			fi.logger.WithError(err).Error("failed to commit snapshot")
 			return err

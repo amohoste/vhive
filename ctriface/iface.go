@@ -213,6 +213,8 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 	logger := log.WithFields(log.Fields{"vmID": vmID})
 	logger.Debug("Orchestrator received StopVM")
 
+	fmt.Printf("Stopping vm %s\n", vmID)
+
 	ctx = namespaces.WithNamespace(ctx, namespaceName)
 	vm, err := o.vmPool.GetVM(vmID)
 	if err != nil {
@@ -223,9 +225,7 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 
 	}
 
-	if err := o.vmPool.Free(vmID); err != nil {
-		logger.WithError(err).Errorf("failed to free VM from pool")
-	}
+	fmt.Printf("Found vm %s\n", vmID)
 
 	logger = log.WithFields(log.Fields{"vmID": vmID})
 
@@ -235,6 +235,7 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 			logger.WithError(err).Error("Failed to kill the task")
 			return err
 		}
+		fmt.Println("Killing task")
 
 		<-vm.ExitStatusCh
 		//FIXME: Seems like some tasks need some extra time to die Issue#15, lr_training
@@ -244,6 +245,7 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 			logger.WithError(err).Error("failed to delete task")
 			return err
 		}
+		fmt.Println("Deleting task")
 
 		container := *vm.Container
 		if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
@@ -251,11 +253,13 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 			return err
 		}
 	}
+	fmt.Println("Stopping vm")
 
 	if _, err := o.fcClient.StopVM(ctx, &proto.StopVMRequest{VMID: vmID}); err != nil {
 		logger.WithError(err).Error("failed to stop firecracker-containerd VM")
 		return err
 	}
+	fmt.Println("Freeing vm")
 
 	if err := o.vmPool.Free(vmID); err != nil {
 		logger.Error("failed to free VM from VM pool")
@@ -263,11 +267,15 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 	}
 
 	if vm.SnapBooted {
+		fmt.Println("Removing device snapshot")
+
 		if err := o.devMapper.RemoveDeviceSnapshot(ctx, vm.ContainerSnapKey); err != nil {
 			logger.Error("failed to deactivate container snapshot")
 			return err
 		}
 	}
+
+	fmt.Println("Stopped VM successfully")
 
 	logger.Debug("Stopped VM successfully")
 
