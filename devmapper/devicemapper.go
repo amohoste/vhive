@@ -117,7 +117,6 @@ func (dmpr *DeviceMapper) GetDeviceSnapshot(ctx context.Context, snapKey string)
 		dmpr.snapDevices[snapKey] = dsnp
 	}
 
-	defer dmpr.Unlock()
 	return dmpr.snapDevices[snapKey], nil
 }
 
