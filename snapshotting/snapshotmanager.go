@@ -82,7 +82,7 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 	if snap.numUsing == 0 {
 		// Add to freesnaps
 		snap.UpdateScore()
-		heap.Push(&mgr.freeSnaps, &snap)
+		heap.Push(&mgr.freeSnaps, snap)
 	}
 
 	return nil
@@ -140,7 +140,7 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 	mgr.usedMib += sizeIncrement
 	snap.usable = true
 	snap.UpdateScore()
-	heap.Push(&mgr.freeSnaps, &snap)
+	heap.Push(&mgr.freeSnaps, snap)
 
 	return nil
 }
