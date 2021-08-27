@@ -491,6 +491,12 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 		}
 	}
 
+	// 6. Resume
+	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
+		log.Printf("failed to resume the VM")
+		return err
+	}
+
 	return nil
 }
 
