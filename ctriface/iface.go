@@ -223,6 +223,10 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 
 	}
 
+	if err := o.vmPool.Free(vmID); err != nil {
+		logger.WithError(err).Errorf("failed to free VM from pool")
+	}
+
 	logger = log.WithFields(log.Fields{"vmID": vmID})
 
 	if ! vm.SnapBooted {

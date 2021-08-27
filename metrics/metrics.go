@@ -35,10 +35,15 @@ import (
 )
 
 const (
+	// A. Boot scratch
+
+	// B. Boot snapshots
+	// B.1 Boot local snapshot
+
+	// B.2 Boot remote snapshot
+
 	// FcResume Time it takes to resume a VM from containerd
 	FcResume = "FcResume"
-	// ConnectFuncClient Time it takes to reconnect function client
-	ConnectFuncClient = "ConnectFuncClient"
 
 	// LoadVMM Name of LoadVMM metric
 	LoadVMM = "LoadVMM"
@@ -62,6 +67,10 @@ const (
 	TaskWait = "TaskWait"
 	// TaskStart Time to start task
 	TaskStart = "TaskStart"
+
+	// functions.go stuff
+	// ConnectFuncClient Time it takes to reconnect function client
+	ConnectFuncClient = "ConnectFuncClient"
 )
 
 // Metric A general metric
