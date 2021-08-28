@@ -58,15 +58,30 @@ const (
 	// B. Boot snapshots
 	// CreateDeviceSnap Time to create a snapshot from the container from an image
 	CreateDeviceSnap = "CreateDeviceSnapshot"
-	// CreateDeviceSnap Time to apply a patch to the container snapshot
+	// RestorePatch Time to apply a patch to the container snapshot
 	RestorePatch = "RestorePatch"
 	// FcLoadSnapshot Time it takes to boot the snapshot
 	FcLoadSnapshot = "FcLoadSnapshot"
+
+	// FcFetchSnapshot Time it takes to check if the snapshot is in remote storage
+	FcCheckSnapshot = "FcCheckSnapshot"
+	// FcFetchSnapshot Time it takes to fetch the snapshot from remote storage
+	FcFetchSnapshot = "FcFetchSnapshot"
 
 	// FcResume Time it takes to resume a VM from containerd
 	FcResume = "FcResume"
 
 	// C. Create snapshots
+	// GetVM Time to get the vm from the pool
+	GetVM = "GetVM"
+	// FcCreateSnapshot Time it takes to create the snapshot in firecracker
+	FcCreateSnapshot = "FcCreateSnapshot"
+	// CreatePatch Time to create a patch for the container snapshot
+	CreatePatch = "CreatePatch"
+	// SerializeSnapInfo Time to serialize the snapshot info
+	SerializeSnapInfo = "SerializeSnapInfo"
+	// SerializeSnapInfo Time to make the memfile sparse
+	SparsifyMemfile = "SparsifyMemfile"
 
 
 

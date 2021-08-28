@@ -251,7 +251,7 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		}
 
 		fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
-		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
+		_, err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil

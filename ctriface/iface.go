@@ -20,6 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// TODO: resolve blocking on stopvm, because have max 16 concurrent threads. Or increase threads
+
 package ctriface
 
 import (
@@ -249,13 +251,6 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 			logger.WithError(err).Error("failed to delete task")
 			return err
 		}
-
-		fmt.Println("Deleting container")
-		container := *vm.Container
-		if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-			logger.WithError(err).Error("failed to delete container")
-			return err
-		}
 	}
 	fmt.Println("Stopping vm")
 
@@ -447,17 +442,24 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string) (*metrics.Metr
 }
 
 // CreateSnapshot Creates a snapshot of a VM
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, sparse bool) error {
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, sparse bool) (*metrics.Metric, error){
+	var (
+		createSnapshotMetric   *metrics.Metric = metrics.NewMetric() // TODO: update metrics
+		tStart               time.Time
+	)
+
 	logger := log.WithFields(log.Fields{"vmID": vmID})
 	logger.Debug("Orchestrator received CreateSnapshot")
 
 	ctx = namespaces.WithNamespace(ctx, namespaceName)
 
 	// 1. Get VM metadata
+	tStart = time.Now()
 	vm, err := o.vmPool.GetVM(vmID)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	createSnapshotMetric.MetricMap[metrics.GetVM] = metrics.ToUS(time.Since(tStart))
 
 	// 2. Create VM & VM memory state snapshot
 	req := &proto.CreateSnapshotRequest{
@@ -466,38 +468,46 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 		MemFilePath:      snap.GetMemFilePath(),
 	}
 
+	tStart = time.Now()
 	if _, err := o.fcClient.CreateSnapshot(ctx, req); err != nil {
 		logger.WithError(err).Error("failed to create snapshot of the VM")
-		return err
+		return nil, err
 	}
+	createSnapshotMetric.MetricMap[metrics.FcCreateSnapshot] = metrics.ToUS(time.Since(tStart))
 
 	// 3. Backup disk state difference
+	tStart = time.Now()
 	if err := o.devMapper.CreatePatch(ctx, snap.GetPatchFilePath(), vm.ContainerSnapKey, *vm.Image); err != nil {
 		logger.WithError(err).Error("failed to create container patch file")
-		return err
+		return nil, err
 	}
+	createSnapshotMetric.MetricMap[metrics.CreatePatch] = metrics.ToUS(time.Since(tStart))
 
 	// 4. Serialize snapshot info
+	tStart = time.Now()
 	if err := snap.SerializeSnapInfo(); err != nil {
 		logger.WithError(err).Error("failed to serialize snapshot info")
-		return err
+		return nil, err
 	}
+	createSnapshotMetric.MetricMap[metrics.SerializeSnapInfo] = metrics.ToUS(time.Since(tStart))
 
 	// 5. Make snapshot memory file sparse
 	if sparse {
+		tStart = time.Now()
 		if err = snap.SparsifyMemfile(); err != nil {
 			logger.WithError(err).Error("failed to make memfile sparse")
-			return err
+			return nil, err
 		}
+		createSnapshotMetric.MetricMap[metrics.SparsifyMemfile] = metrics.ToUS(time.Since(tStart))
 	}
 
 	// 6. Resume
 	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
 		log.Printf("failed to resume the VM")
-		return err
+		return nil, err
 	}
 
-	return nil
+	return createSnapshotMetric, nil
 }
 
 // LoadSnapshot Loads a snapshot of a VM TODO: correct defer to undo stuff

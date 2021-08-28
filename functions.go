@@ -452,7 +452,7 @@ func (f *Function) CreateInstanceSnapshot() {
 		log.Panic(err)
 	}
 
-	err = orch.CreateSnapshot(ctx, f.vmID, nil, true)
+	_, err = orch.CreateSnapshot(ctx, f.vmID, nil, true)
 	if err != nil {
 		log.Panic(err)
 	}
