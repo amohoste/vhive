@@ -57,7 +57,7 @@ func NewBootMetric(revisionId string) *BootMetric {
 
 func GetBootHeaderLine() []string {
 	metric := NewBootMetric("")
-	v := reflect.ValueOf(metric)
+	v := reflect.ValueOf(*metric)
 	typeOfS := v.Type()
 	keys := make([]string, v.NumField())
 
@@ -68,7 +68,7 @@ func GetBootHeaderLine() []string {
 }
 
 func (metric *BootMetric) GetValueLine() []string {
-	v := reflect.ValueOf(metric)
+	v := reflect.ValueOf(*metric)
 	values:= make([]string, v.NumField())
 
 	for i := 0; i< v.NumField(); i++ {
@@ -108,7 +108,7 @@ func NewSnapMetric(revisionId string) *SnapMetric {
 
 func GetSnapHeaderLine() []string {
 	metric := NewSnapMetric("")
-	v := reflect.ValueOf(metric)
+	v := reflect.ValueOf(*metric)
 	typeOfS := v.Type()
 	keys := make([]string, v.NumField())
 
@@ -119,7 +119,7 @@ func GetSnapHeaderLine() []string {
 }
 
 func (metric *SnapMetric) GetValueLine() []string {
-	v := reflect.ValueOf(metric)
+	v := reflect.ValueOf(*metric)
 	values:= make([]string, v.NumField())
 
 	for i := 0; i< v.NumField(); i++ {
