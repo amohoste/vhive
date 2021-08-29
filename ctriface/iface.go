@@ -251,6 +251,13 @@ func (o *Orchestrator) StopSingleVM(ctx context.Context, vmID string) error {
 			logger.WithError(err).Error("failed to delete task")
 			return err
 		}
+
+		fmt.Println("Deleting container")
+		container := *vm.Container
+		if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
+			logger.WithError(err).Error("failed to delete container")
+			return err
+		}
 	}
 	fmt.Println("Stopping vm")
 
