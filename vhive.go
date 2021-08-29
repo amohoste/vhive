@@ -74,7 +74,7 @@ func main() {
 	snapsCapacityMiB := flag.Int64("snapcapacity", 102400, "Capacity set aside for storing snapshots (Mib)")
 	isSparseSnaps := flag.Bool("sparsesnaps", false, "Makes memory files sparse after storing to reduce disk utilization")
 	isSnapshotsEnabled = flag.Bool("snapshots", false, "Use VM snapshots when adding function instances")
-	isMetricsMode = flag.Bool("metrics", false, "Calculate UPF metrics")
+	isMetricsMode = flag.Bool("metrics", false, "Calculate metrics")
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled") // TODO: what's lazy mode
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 
@@ -113,7 +113,7 @@ func main() {
 		ctriface.WithLazyMode(*isLazyMode),
 	)
 
-	go criServe(*snapsCapacityMiB, *isSparseSnaps)
+	go criServe(*snapsCapacityMiB, *isSparseSnaps, *isMetricsMode)
 	orchServe()
 }
 
@@ -122,7 +122,7 @@ type server struct {
 }
 
 // Serve K8S CRI requests on specified socket
-func criServe(snapsCapacityMiB int64, isSparseSnaps bool) {
+func criServe(snapsCapacityMiB int64, isSparseSnaps, isMetricsMode bool) {
 	lis, err := net.Listen("unix", *criSock)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -130,7 +130,7 @@ func criServe(snapsCapacityMiB int64, isSparseSnaps bool) {
 
 	s := grpc.NewServer()
 
-	criService, err := fccdcri.NewService(orch, snapsCapacityMiB, isSparseSnaps)
+	criService, err := fccdcri.NewService(orch, snapsCapacityMiB, isSparseSnaps, isMetricsMode)
 	if err != nil {
 		log.Fatalf("failed to create CRI service %v", err)
 	}

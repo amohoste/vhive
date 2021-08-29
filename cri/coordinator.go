@@ -46,10 +46,12 @@ type coordinator struct {
 	orch   *ctriface.Orchestrator
 	nextID uint64
 	isSparseSnaps bool
+	isMetricMode bool
 
 	activeInstances     map[string]*funcInstance
 	withoutOrchestrator bool
 	snapshotManager     *snapshotting.SnapshotManager
+	metricsManager      *metrics.MetricsManager
 }
 
 type coordinatorOption func(*coordinator)
@@ -61,12 +63,14 @@ func withoutOrchestrator() coordinatorOption {
 	}
 }
 
-func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool, opts ...coordinatorOption) *coordinator {
+func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool, isMetricsMode bool, opts ...coordinatorOption) *coordinator {
 	c := &coordinator{
 		activeInstances: make(map[string]*funcInstance),
 		orch:            orch,
 		snapshotManager: snapshotting.NewSnapshotManager(snapshotsDir, snapsCapacityMiB),
 		isSparseSnaps:   isSparseSnaps,
+		metricsManager: metrics.NewMetricsManager("/fccd/metrics"),
+		isMetricMode: isMetricsMode,
 	}
 
 	for _, opt := range opts {
@@ -157,7 +161,7 @@ func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 }
 
 func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
-	tStart := time.Now()
+	tStartCold := time.Now()
 	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
 	logger := log.WithFields(
 		log.Fields{
@@ -173,24 +177,31 @@ func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, m
 		err  error
 	)
 
+	bootMetric := metrics.NewBootMetric(revision)
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*40)
 	defer cancel()
 
 	if !c.withoutOrchestrator {
-		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount)
+		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, bootMetric)
 		if err != nil {
 			logger.WithError(err).Error("coordinator failed to start VM")
 		}
 	}
 
-	coldStartTimeMs := metrics.ToMs(time.Since(tStart))
+	coldStartTimeMs := metrics.ToMs(time.Since(tStartCold))
 	fi := newFuncInstance(vmID, image, revision, resp, false, memSizeMib, vCPUCount, coldStartTimeMs)
 	logger.Debug("successfully created fresh instance")
+
+	if c.isMetricMode {
+		go c.metricsManager.AddBootMetric(bootMetric)
+	}
+
 	return fi, err
 }
 
 func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshotting.Snapshot, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
-	tStart := time.Now()
+	tStartCold := time.Now()
 	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
 	logger := log.WithFields(
 		log.Fields{
@@ -206,23 +217,30 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 		err  error
 	)
 
+	bootMetric := metrics.NewBootMetric(snap.GetRevisionId())
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*120) // TODO: set to 30
 	defer cancel()
 
-	resp, _, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap)
+	resp, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap, bootMetric)
 	if err != nil {
 		logger.WithError(err).Error("failed to load VM")
 		return nil, err
 	}
 
-	if _, err := c.orch.ResumeVM(ctxTimeout, vmID); err != nil {
+	if err := c.orch.ResumeVM(ctxTimeout, vmID, bootMetric); err != nil {
 		logger.WithError(err).Error("failed to load VM")
 		return nil, err
 	}
 
-	coldStartTimeMs := metrics.ToMs(time.Since(tStart))
+	coldStartTimeMs := metrics.ToMs(time.Since(tStartCold))
 	fi := newFuncInstance(vmID, snap.GetImage(), snap.GetRevisionId(), resp, true, memSizeMib, vCPUCount, coldStartTimeMs)
 	logger.Debug("successfully loaded instance from snapshot")
+
+	if c.isMetricMode {
+		go c.metricsManager.AddBootMetric(bootMetric)
+	}
+
 	return fi, err
 }
 
@@ -244,14 +262,18 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		logger.Debug("creating instance snapshot before stopping")
 		//fmt.Printf("Pausing vm %s\n", fi.vmID)
 
+		snapMetric := metrics.NewSnapMetric(fi.revisionId)
+
+		tStart := time.Now()
 		err = c.orch.PauseVM(ctxTimeout, fi.vmID)
 		if err != nil {
 			logger.WithError(err).Error("failed to pause VM")
 			return nil
 		}
+		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
 		//fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
-		_, err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps, snapMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
@@ -261,6 +283,10 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
 			fi.logger.WithError(err).Error("failed to commit snapshot")
 			return err
+		}
+
+		if c.isMetricMode {
+			go c.metricsManager.AddSnapMetric(snapMetric)
 		}
 	} else {
 		fi.logger.Warn("Not enough space for snapshot")

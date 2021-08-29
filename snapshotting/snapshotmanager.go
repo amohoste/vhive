@@ -12,6 +12,7 @@ import (
 // TODO: fetch snapshot from remote  if needed and viable. Keep global snapshot store with cold start time
 // so can approximately calculate if worth to fetch now, and if worth to return but still fetch in background.
 // also set usable flag for remote snapshots.
+// TODO: maybe don't always make snapshot because too expensive
 
 type SnapshotManager struct {
 	sync.Mutex

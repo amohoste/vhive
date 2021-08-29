@@ -65,7 +65,7 @@ type VMConfig struct {
 }
 
 // NewService initializes the host orchestration state.
-func NewService(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool) (*Service, error) {
+func NewService(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps, isMetricsMode bool) (*Service, error) {
 	if orch == nil {
 		return nil, errors.New("orch must be non nil")
 	}
@@ -86,7 +86,7 @@ func NewService(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSna
 		orch:               orch,
 		stockRuntimeClient: stockRuntimeClient,
 		stockImageClient:   stockImageClient,
-		coordinator:        newCoordinator(orch, snapsCapacityMiB, isSparseSnaps),
+		coordinator:        newCoordinator(orch, snapsCapacityMiB, isSparseSnaps, isMetricsMode),
 		podVMConfigs:       make(map[string]*VMConfig),
 	}
 
