@@ -47,7 +47,6 @@ const (
 var (
 	flog     *os.File
 	orch     *ctriface.Orchestrator
-	funcPool *FuncPool
 
 	isSnapshotsEnabled *bool
 	isLazyMode         *bool
