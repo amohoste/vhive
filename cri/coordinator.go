@@ -192,6 +192,7 @@ func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, m
 	logger.Debug("successfully created fresh instance")
 
 	if c.isMetricMode {
+		bootMetric.SnapBooted = false
 		go c.metricsManager.AddBootMetric(bootMetric)
 	}
 
@@ -236,6 +237,8 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 	logger.Debug("successfully loaded instance from snapshot")
 
 	if c.isMetricMode {
+		bootMetric.SnapBooted = true
+		bootMetric.Failed = false
 		go c.metricsManager.AddBootMetric(bootMetric)
 	}
 
@@ -284,6 +287,7 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		}
 
 		if c.isMetricMode {
+			snapMetric.Failed = false
 			go c.metricsManager.AddSnapMetric(snapMetric)
 		}
 	} else {

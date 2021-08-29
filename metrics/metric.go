@@ -29,7 +29,7 @@ type BootMetric struct {
 	TaskStart       float64
 
 	// 3. (remote) snapshot metrics
-	snapBooted       bool
+	SnapBooted       bool
 	// CreateDeviceSnap Time to create a snapshot from the container from an image
 	CreateDeviceSnap float64
 	// RestorePatch Time to apply a patch to the container snapshot
@@ -40,7 +40,7 @@ type BootMetric struct {
 	FcResume         float64
 
 	// 4. Remote snapshot metrics
-	remoteBooted     bool
+	RemoteBooted     bool
 	// FcFetchSnapshot Time it takes to check if the snapshot is in remote storage
 	FcCheckSnapshot  float64
 	// FcFetchSnapshot Time it takes to fetch the snapshot from remote storage
@@ -50,7 +50,8 @@ type BootMetric struct {
 func NewBootMetric(revisionId string) *BootMetric {
 	b := new(BootMetric)
 	b.RevisionId = revisionId
-	b.Failed = false
+	b.Failed = true
+	b.RemoteBooted = false
 
 	return b
 }
@@ -102,7 +103,7 @@ type SnapMetric struct {
 func NewSnapMetric(revisionId string) *SnapMetric {
 	s := new(SnapMetric)
 	s.RevisionId = revisionId
-	s.Failed = false
+	s.Failed = true
 	return s
 }
 
