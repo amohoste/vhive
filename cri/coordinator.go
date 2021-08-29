@@ -101,10 +101,10 @@ func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 	if present {
 		delete(c.activeInstances, containerID)
 	}
-	fmt.Printf("Terminating %s\n", containerID)
+	/*fmt.Printf("Terminating %s\n", containerID)
 	fmt.Printf("T.Activeinstances: %s\n", c.activeInstances)
 	fmt.Printf("T.Present: %s\n", present)
-	fmt.Printf("T.Fi: %s\n", fi)
+	fmt.Printf("T.Fi: %s\n", fi)*/
 
 	c.Unlock()
 
@@ -148,9 +148,9 @@ func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 
 	c.activeInstances[containerID] = fi
 
-	fmt.Printf("Added %s\n", containerID)
+	/*fmt.Printf("Added %s\n", containerID)
 	fmt.Printf("A.Activeinstances: %s\n", c.activeInstances)
-	fmt.Printf("A.Fi: %s\n", fi)
+	fmt.Printf("A.Fi: %s\n", fi)*/
 
 
 	return nil
@@ -234,7 +234,7 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		},
 	)
 
-	fmt.Printf("Initializing snapshot for revision %s\n", fi.revisionId)
+	//fmt.Printf("Initializing snapshot for revision %s\n", fi.revisionId)
 
 	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount); err == nil {
 		// TODO: maybe needs to be longer
@@ -242,7 +242,7 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 		defer cancel()
 
 		logger.Debug("creating instance snapshot before stopping")
-		fmt.Printf("Pausing vm %s\n", fi.vmID)
+		//fmt.Printf("Pausing vm %s\n", fi.vmID)
 
 		err = c.orch.PauseVM(ctxTimeout, fi.vmID)
 		if err != nil {
@@ -250,14 +250,14 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 			return nil
 		}
 
-		fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
+		//fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
 		_, err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
 		}
 
-		fmt.Printf("Committing snapshot for revision %s\n", fi.revisionId)
+		//fmt.Printf("Committing snapshot for revision %s\n", fi.revisionId)
 		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
 			fi.logger.WithError(err).Error("failed to commit snapshot")
 			return err
