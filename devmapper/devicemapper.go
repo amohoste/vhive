@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/pkg/errors"
@@ -19,6 +20,11 @@ type DeviceMapper struct {
 	poolName           string
 	snapDevices        map[string]*DeviceSnapshot // maps revision snapkey to snapshot device
 	snapshotService    snapshots.Snapshotter
+
+	// Need to create leases to avoid garbage collecting snapshots manually created through containerd.
+	// Done already if using normal containerd functions (eg. container.create)
+	leaseManager      leases.Manager
+	leases            map[string]*leases.Lease
 }
 
 func NewDeviceMapper(client *containerd.Client, poolName string) *DeviceMapper {
@@ -26,6 +32,8 @@ func NewDeviceMapper(client *containerd.Client, poolName string) *DeviceMapper {
 	devMapper.poolName = poolName
 	devMapper.snapDevices = make(map[string]*DeviceSnapshot)
 	devMapper.snapshotService = client.SnapshotService("devmapper")
+	devMapper.leaseManager = client.LeasesService()
+	devMapper.leases = make(map[string]*leases.Lease)
 	return devMapper
 }
 
@@ -47,7 +55,13 @@ func (dmpr *DeviceMapper) CreateDeviceSnapshotFromImage(ctx context.Context, sna
 }
 
 func (dmpr *DeviceMapper) CreateDeviceSnapshot(ctx context.Context, snapKey, parentKey string) error {
-	mounts, err := dmpr.snapshotService.Prepare(ctx, snapKey, parentKey)
+	lease, err := dmpr.leaseManager.Create(ctx, leases.WithID(snapKey))
+	if err != nil {
+		return err
+	}
+
+	leasedCtx := leases.WithLease(ctx, lease.ID)
+	mounts, err := dmpr.snapshotService.Prepare(leasedCtx, snapKey, parentKey)
 	if err != nil {
 		return err
 	}
@@ -63,6 +77,7 @@ func (dmpr *DeviceMapper) CreateDeviceSnapshot(ctx context.Context, snapKey, par
 	dsnp := NewDeviceSnapshot(dmpr.poolName, deviceName, info.SnapshotDev)
 	dsnp.numActivated = 1
 	dmpr.snapDevices[snapKey] = dsnp
+	dmpr.leases[snapKey] = &lease
 	dmpr.Unlock()
 	return nil
 }
@@ -71,15 +86,25 @@ func (dmpr *DeviceMapper) CreateDeviceSnapshot(ctx context.Context, snapKey, par
 func (dmpr *DeviceMapper) RemoveDeviceSnapshot(ctx context.Context, snapKey string) error {
 	dmpr.Lock()
 
+	lease, present := dmpr.leases[snapKey]
+	if ! present {
+		return errors.New(fmt.Sprintf("Delete device snapshot: lease for key %s does not exist", snapKey))
+	}
+
 	if _, present := dmpr.snapDevices[snapKey]; !present {
 		return errors.New(fmt.Sprintf("Delete device snapshot: device for key %s does not exist", snapKey))
 	}
 	delete(dmpr.snapDevices, snapKey)
+	delete(dmpr.leases, snapKey)
 	dmpr.Unlock()
 
 	// Not only deactivates but also deletes device TODO: do manually, also for prepare
 	err := dmpr.snapshotService.Remove(ctx, snapKey)
 	if err != nil {
+		return err
+	}
+
+	if err := dmpr.leaseManager.Delete(ctx, *lease); err != nil {
 		return err
 	}
 
