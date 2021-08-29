@@ -193,6 +193,7 @@ func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, m
 
 	if c.isMetricMode {
 		bootMetric.SnapBooted = false
+		bootMetric.Failed = false
 		go c.metricsManager.AddBootMetric(bootMetric)
 	}
 
