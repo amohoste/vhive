@@ -37,8 +37,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: collect metrics and add method to write to csv file
-
 const snapshotsDir = "/fccd/snapshots"
 
 type coordinator struct {
@@ -219,7 +217,7 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 
 	bootMetric := metrics.NewBootMetric(snap.GetRevisionId())
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*120) // TODO: set to 30
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	resp, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap, bootMetric)

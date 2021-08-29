@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // FXME: make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 

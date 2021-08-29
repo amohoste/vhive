@@ -75,7 +75,7 @@ func main() {
 	isSparseSnaps := flag.Bool("sparsesnaps", false, "Makes memory files sparse after storing to reduce disk utilization")
 	isSnapshotsEnabled = flag.Bool("snapshots", false, "Use VM snapshots when adding function instances")
 	isMetricsMode = flag.Bool("metrics", false, "Calculate metrics")
-	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled") // TODO: what's lazy mode
+	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 
 	// Parse cmd line arguments
@@ -91,7 +91,7 @@ func main() {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // FXME: make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 

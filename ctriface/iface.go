@@ -57,7 +57,6 @@ import (
 )
 
 // StartVMResponse is the response returned by StartVM
-// TODO: Integrate response with non-cri API
 type StartVMResponse struct {
 	// GuestIP is the IP of the guest MicroVM
 	GuestIP string
@@ -517,7 +516,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 }
 
 // LoadSnapshot Loads a snapshot of a VM TODO: correct defer to undo stuff
-// TODO: could do stuf in parallel as in vhive, also more generally maybe
+// TODO: could do stuf in parallel, also more generally maybe
 func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, bootMetric *metrics.BootMetric) (_ *StartVMResponse, retErr error) {
 	var (
 		tStart               time.Time

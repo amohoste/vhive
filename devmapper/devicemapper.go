@@ -98,7 +98,7 @@ func (dmpr *DeviceMapper) RemoveDeviceSnapshot(ctx context.Context, snapKey stri
 	delete(dmpr.leases, snapKey)
 	dmpr.Unlock()
 
-	// Not only deactivates but also deletes device TODO: do manually, also for prepare
+	// Not only deactivates but also deletes device
 	err := dmpr.snapshotService.Remove(ctx, snapKey)
 	if err != nil {
 		return err

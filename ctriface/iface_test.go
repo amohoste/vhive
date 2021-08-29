@@ -36,7 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO: Make it impossible to use lazy mode without UPF
+// TDO: Make it impossible to use lazy mode without UPF
 var (
 	isUPFEnabled = flag.Bool("upf", false, "Set UPF enabled")
 	isLazyMode   = flag.Bool("lazy", false, "Set lazy serving on or off")
@@ -49,7 +49,7 @@ func TestPauseSnapResume(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -92,7 +92,7 @@ func TestStartStopSerial(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -126,7 +126,7 @@ func TestPauseResumeSerial(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -166,7 +166,7 @@ func TestStartStopParallel(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -225,7 +225,7 @@ func TestPauseResumeParallel(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 

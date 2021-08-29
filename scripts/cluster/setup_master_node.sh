@@ -73,7 +73,7 @@ kubectl apply --filename https://github.com/knative/net-istio/releases/download/
 kubectl apply --filename https://github.com/knative/eventing/releases/download/$KNATIVE_VERSION/eventing-crds.yaml
 kubectl apply --filename https://github.com/knative/eventing/releases/download/$KNATIVE_VERSION/eventing-core.yaml
 
-# todo: need to replace this with Kafka
+# tdo: need to replace this with Kafka
 # install a default Channel (messaging) layer
 kubectl apply --filename https://github.com/knative/eventing/releases/download/$KNATIVE_VERSION/in-memory-channel.yaml
 

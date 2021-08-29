@@ -43,7 +43,7 @@ func TestSnapLoad(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -93,7 +93,7 @@ func TestSnapLoadMultiple(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -152,7 +152,7 @@ func TestParallelSnapLoad(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 
@@ -214,7 +214,7 @@ func TestParallelPhasedSnapLoad(t *testing.T) {
 		TimestampFormat: ctrdlog.RFC3339NanoFixed,
 		FullTimestamp:   true,
 	})
-	//log.SetReportCaller(true) // FIXME: make sure it's false unless debugging
+	//log.SetReportCaller(true) // make sure it's false unless debugging
 
 	log.SetOutput(os.Stdout)
 

@@ -23,7 +23,7 @@ type Snapshot struct {
 	numUsing               uint32
 	TotalSizeMiB           int64
 	freq                   int64 // TODO: across all instances & set to zero if all isntances terminated
-	coldStartTimeMs        int64 // TODO: pass
+	coldStartTimeMs        int64
 	lastUsedClock          int64
 	score                  int64
 }
