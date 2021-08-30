@@ -155,6 +155,7 @@ func addTrailingSlash(path string) string {
 
 func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 	patchArg := fmt.Sprintf("--only-write-batch=%s", patchPath)
+	fmt.Printf("sudo rsync -ar %s %s %s\n", patchArg, addTrailingSlash(imageMountPath), addTrailingSlash(containerMountPath))
 	cmd := exec.Command("sudo", "rsync", "-ar", patchArg, addTrailingSlash(imageMountPath), addTrailingSlash(containerMountPath))
 	err := cmd.Run()
 	if err != nil {
