@@ -6,7 +6,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/snapshots"
-	"github.com/ease-lab/vhive/metrics"
+	//"github.com/ease-lab/vhive/metrics"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/pkg/errors"
 	"os"
@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
+	//"time"
 )
 
 type DeviceMapper struct {
@@ -179,10 +179,10 @@ func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerS
 		return err
 	}
 
-	imageSnap, err := dmpr.GetImageSnapshot(ctx, image)
+	/*imageSnap, err := dmpr.GetImageSnapshot(ctx, image)
 	if err != nil {
 		return err
-	}
+	}*/
 
 	// 1. Create temp image snap
 	tempImageSnapshotKey := fmt.Sprintf("tempimagesnap%s", containerSnapKey)
