@@ -6,6 +6,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/snapshots"
+	"github.com/ease-lab/vhive/metrics"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/pkg/errors"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type DeviceMapper struct {
@@ -182,19 +184,43 @@ func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerS
 		return err
 	}
 
+	// 1. Create temp image snap
+	tempImageSnapshotKey := fmt.Sprintf("tempimagesnap%s", containerSnapKey)
+
+	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, tempImageSnapshotKey, image); err != nil {
+		return errors.Wrapf(err, "creating temporary image snapshot")
+	}
+	defer dmpr.RemoveDeviceSnapshot(ctx, tempImageSnapshotKey)
+
+	tempImageSnap, err := dmpr.GetDeviceSnapshot(ctx, tempImageSnapshotKey)
+	if err != nil {
+		return errors.Wrapf(err, "previously created image snapshot device does not exist")
+	}
+
 	// 1. Activate image snapshot
-	err = imageSnap.Activate()
+	/*err = imageSnap.Activate()
 	if err != nil {
 		return errors.Wrapf(err, "failed to activate image snapshot")
 	}
-	defer imageSnap.Deactivate()
+	defer imageSnap.Deactivate()*/
 
 	// 2. Mount original and snapshot image
-	imageMountPath, err := imageSnap.Mount(true)
+	/*imageMountPath, err := imageSnap.Mount(true)
 	if err != nil {
 		return err
 	}
 	defer imageSnap.UnMount()
+	if err != nil {
+		return err
+	}*/
+
+	// 1. Mount container snapshot device
+	tempImageSnapMountPath, err := tempImageSnap.Mount(true)
+	if err != nil {
+		return err
+	}
+	defer tempImageSnap.UnMount()
+
 
 	containerMountPath, err := containerSnap.Mount(true)
 	if err != nil {
@@ -203,7 +229,8 @@ func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerS
 	defer containerSnap.UnMount()
 
 	// 3. Save changes to file
-	return extractPatch(imageMountPath, containerMountPath, patchPath)
+	//return extractPatch(imageMountPath, containerMountPath, patchPath)
+	return extractPatch(tempImageSnapMountPath, containerMountPath, patchPath)
 }
 
 func applyPatch(containerMountPath, patchPath string) error {
