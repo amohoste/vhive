@@ -124,10 +124,10 @@ func (dsnp *DeviceSnapshot) UnMount() error {
 		if err != nil {
 			return errors.Wrapf(err, "removing %s", dsnp.mountDir)
 		}
+		dsnp.mountDir = ""
 	}
 
 	dsnp.numMounted -= 1
-	dsnp.mountDir = ""
 	return nil
 }
 
