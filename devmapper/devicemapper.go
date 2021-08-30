@@ -159,6 +159,7 @@ func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 	cmd := exec.Command("sudo", "rsync", "-ar", patchArg, addTrailingSlash(imageMountPath), addTrailingSlash(containerMountPath))
 	err := cmd.Run()
 	if err != nil {
+		fmt.Println(err)
 		return errors.Wrapf(err, "creating patch between %s and %s at %s", imageMountPath, containerMountPath, patchPath)
 	}
 
