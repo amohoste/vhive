@@ -26,6 +26,7 @@ import (
 	"github.com/ease-lab/vhive/devmapper"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -56,6 +57,7 @@ const (
 type Orchestrator struct {
 	vmPool       *misc.VMPool				 // Pool of active VMs. Map of vmid to vms and tapmanager
 	cachedImages map[string]containerd.Image // Cached container images
+	imageLock    sync.Mutex
 	snapshotter  string						 // image snapshotter
 	client       *containerd.Client			 // containerd client
 	fcClient     *fcclient.Client			 // firecrackercontainerd client

@@ -319,7 +319,10 @@ func getImageURL(image string) string {
 }
 
 func (o *Orchestrator) getImage(ctx context.Context, imageName string) (*containerd.Image, error) {
+	// Need locking?
+	o.imageLock.Lock()
 	image, found := o.cachedImages[imageName]
+	o.imageLock.Unlock()
 	if !found {
 		var err error
 		log.Debug(fmt.Sprintf("Pulling image %s", imageName))
@@ -350,7 +353,9 @@ func (o *Orchestrator) getImage(ctx context.Context, imageName string) (*contain
 		if err != nil {
 			return &image, err
 		}
+		o.imageLock.Lock()
 		o.cachedImages[imageName] = image
+		o.imageLock.Unlock()
 	}
 
 	return &image, nil
