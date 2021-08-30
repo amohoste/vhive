@@ -100,7 +100,6 @@ func (mgr *NetworkManager) CreateNetwork(vmID string) error {
 
 	// Lock the OS Thread so we don't accidentally switch namespaces
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	// 0. Get host network namespace
 	hostNsHandle, err := netns.Get()
@@ -151,6 +150,7 @@ func (mgr *NetworkManager) CreateNetwork(vmID string) error {
 	if err != nil {
 		return err
 	}
+	runtime.UnlockOSThread()
 
 	// B.2 Configure host side veth pair
 	if err := configVeth(netCfg.getVeth1Name(), netCfg.getVeth1CIDR()); err != nil {
@@ -181,16 +181,6 @@ func (mgr *NetworkManager) GetConfig(vmID string) *NetworkConfig {
 func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	netCfg := mgr.GetConfig(vmID)
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	hostNsHandle, err := netns.Get()
-	defer hostNsHandle.Close()
-	if err != nil {
-		fmt.Printf("Failed to get host ns, %s\n", err)
-		return err
-	}
-
 	// Delete nat to route traffic out of veth device
 	if err := deleteForwardRules(netCfg.getVeth1Name(), mgr.hostIfaceName); err != nil {
 		return err
@@ -198,6 +188,15 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 
 	// Delete route on the host for the clone address
 	if err := deleteRoute(netCfg.GetCloneIP(), netCfg.getVeth0CIDR()); err != nil {
+		return err
+	}
+
+	runtime.LockOSThread()
+
+	hostNsHandle, err := netns.Get()
+	defer hostNsHandle.Close()
+	if err != nil {
+		fmt.Printf("Failed to get host ns, %s\n", err)
 		return err
 	}
 
@@ -241,6 +240,7 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	if err != nil {
 		return err
 	}
+	runtime.UnlockOSThread()
 
 	mgr.removeNetConfig(vmID)
 
