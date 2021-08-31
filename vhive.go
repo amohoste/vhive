@@ -92,7 +92,15 @@ func main() {
 	})
 	//log.SetReportCaller(true) // FXME: make sure it's false unless debugging
 
-	log.SetOutput(os.Stdout)
+	if !*isCliMode {
+		log.SetOutput(os.Stdout)
+	} else {
+		if flog, err = os.Create("/tmp/vhive_log.log"); err != nil {
+			panic(err)
+		}
+		defer flog.Close()
+		log.SetOutput(flog)
+	}
 
 	if *debug {
 		log.SetLevel(log.DebugLevel)
@@ -142,7 +150,7 @@ func criServe(criService *fccdcri.Service) {
 	s := grpc.NewServer()
 
 	criService.Register(s)
-	
+
 
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
