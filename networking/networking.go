@@ -124,7 +124,7 @@ func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 	cmd := exec.Command(
 		"sudo", "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp,
 	)
-	err := cmd.Run()
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "creating ip tables")
 	}
@@ -132,7 +132,7 @@ func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 	cmd = exec.Command(
 		"sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp,
 	)
-	err = cmd.Run()
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "creating ip tables")
 	}
