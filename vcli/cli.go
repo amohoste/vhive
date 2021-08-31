@@ -56,7 +56,7 @@ func executor(input string) {
 func CreateCli(coordinator *fccdcri.Coordinator) {
 //func main() {
 	args = newCliArgs()
-	newVmController(coordinator) // vmControl = newVmController()
+	vmControl = newVmController(coordinator) // vmControl = newVmController()
 
 	p := prompt.New(
 		executor,
