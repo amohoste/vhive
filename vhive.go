@@ -142,6 +142,7 @@ func criServe(criService *fccdcri.Service) {
 	s := grpc.NewServer()
 
 	criService.Register(s)
+	
 
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

@@ -24,6 +24,7 @@ type VmController struct {
 func newVmController(coordinator *fccdcri.Coordinator) *VmController {
 	c := &VmController{
 		uVms: make(map[string]*VmInstance),
+		coordinator: coordinator,
 		safeUvms: make(map[string]*VmInstance),
 		containerId: 0,
 		addedUvms: make([]string, 0),
