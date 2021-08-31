@@ -127,14 +127,14 @@ func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 
 	// for packets that leave the namespace and have the source IP address of the original guest, rewrite the source
 	// address to clone address
-	err = ipt.Append("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp, "--wait")
+	err = ipt.Append("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp)//, "--wait") Not needed since in namespace and not modified by others?
 	if err != nil {
 		return errors.Wrapf(err, "adding iptable POSTROUTING rule")
 	}
 
 	// do the reverse operation; rewrites the destination address of packets heading towards the clone
 	// address to source address
-	err = ipt.Append("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp, "--wait")
+	err = ipt.Append("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp)//, "--wait")
 	if err != nil {
 		return errors.Wrapf(err, "adding iptable POSTROUTING rule")
 	}
@@ -150,14 +150,14 @@ func deleteNatRules(vethVmName, hostIp, cloneIp string) error {
 
 	// for packets that leave the namespace and have the source IP address of the original guest, rewrite the source
 	// address to clone address
-	err = ipt.Delete("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp, "--wait")
+	err = ipt.Delete("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp)//, "--wait")
 	if err != nil {
 		return errors.Wrapf(err, "deleting iptable POSTROUTING rule")
 	}
 
 	// do the reverse operation; rewrites the destination address of packets heading towards the clone
 	// address to source address
-	err = ipt.Delete("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp, "--wait")
+	err = ipt.Delete("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp)//, "--wait")
 	if err != nil {
 		return errors.Wrapf(err, "deleting iptable POSTROUTING rule")
 	}
