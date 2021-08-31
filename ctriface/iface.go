@@ -67,7 +67,7 @@ const (
 )
 
 // StartVM Boots a VM if it does not exist
-func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memSizeMib ,vCPUCount uint32, bootMetric *metrics.BootMetric) (_ *StartVMResponse, retErr error) {
+func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memSizeMib ,vCPUCount uint32, bootMetric *metrics.BootMetric, netMetric *metrics.NetMetric) (_ *StartVMResponse, retErr error) {
 	var (
 		tStart        time.Time
 	)
@@ -77,7 +77,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 
 	// 1. Allocate VM metadata & create vm network
 	tStart = time.Now()
-	vm, err := o.vmPool.Allocate(vmID)
+	vm, err := o.vmPool.Allocate(vmID, netMetric)
 	if err != nil {
 		logger.Error("failed to allocate VM in VM pool")
 		return nil,  err
@@ -508,7 +508,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 
 // LoadSnapshot Loads a snapshot of a VM TODO: correct defer to undo stuff
 // TODO: could do stuf in parallel, also more generally maybe
-func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, bootMetric *metrics.BootMetric) (_ *StartVMResponse, retErr error) {
+func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, bootMetric *metrics.BootMetric, netMetric *metrics.NetMetric) (_ *StartVMResponse, retErr error) {
 	var (
 		tStart               time.Time
 	)
@@ -520,7 +520,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 
 	// 1. Allocate VM metadata & create vm network
 	tStart = time.Now()
-	vm, err := o.vmPool.Allocate(vmID)
+	vm, err := o.vmPool.Allocate(vmID, netMetric)
 	if err != nil {
 		logger.Error("failed to allocate VM in VM pool")
 		return nil,  err

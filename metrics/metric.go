@@ -128,3 +128,53 @@ func (metric *SnapMetric) GetValueLine() []string {
 	}
 	return values
 }
+
+// If value is 0: not exist. Make sure all fields capitalized. Fields added to csv in order in struct
+type NetMetric struct {
+	RevisionId        string
+	Failed          bool
+
+	CreateConfig       float64
+	LockOsThread       float64
+	GetHostNs          float64
+	CreateVmNs         float64
+	CreateVmTap        float64
+	CreateVeth         float64
+	ConfigVethVm       float64
+	SetDefaultGw       float64
+	SetupNat           float64
+	SwitchHostNs       float64
+	UnlockOsThread     float64
+	ConfigVethHost     float64
+	Addroute           float64
+	SetForward         float64
+}
+
+func NewNetMetric(revisionId string) *NetMetric {
+	s := new(NetMetric)
+	s.RevisionId = revisionId
+	s.Failed = true
+	return s
+}
+
+func GetNetHeaderLine() []string {
+	metric := NewNetMetric("")
+	v := reflect.ValueOf(*metric)
+	typeOfS := v.Type()
+	keys := make([]string, v.NumField())
+
+	for i := 0; i< v.NumField(); i++ {
+		keys[i] = fmt.Sprintf("%s", typeOfS.Field(i).Name)
+	}
+	return keys
+}
+
+func (metric *NetMetric) GetValueLine() []string {
+	v := reflect.ValueOf(*metric)
+	values:= make([]string, v.NumField())
+
+	for i := 0; i< v.NumField(); i++ {
+		values[i] = fmt.Sprintf("%v", v.Field(i).Interface())
+	}
+	return values
+}

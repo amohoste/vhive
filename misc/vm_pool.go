@@ -23,6 +23,7 @@
 package misc
 
 import (
+	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/networking"
 	log "github.com/sirupsen/logrus"
 )
@@ -40,7 +41,7 @@ func NewVMPool(hostIface string) *VMPool {
 }
 
 // Allocate Initializes a VM, activates it and then adds it to VM map
-func (p *VMPool) Allocate(vmID string) (*VM, error) {
+func (p *VMPool) Allocate(vmID string, netMetric *metrics.NetMetric) (*VM, error) {
 
 	logger := log.WithFields(log.Fields{"vmID": vmID})
 
@@ -53,7 +54,7 @@ func (p *VMPool) Allocate(vmID string) (*VM, error) {
 	vm := NewVM(vmID)
 
 	var err error
-	err = p.networkManager.CreateNetwork(vmID)
+	err = p.networkManager.CreateNetwork(vmID, netMetric)
 	if err != nil {
 		logger.Warn("VM network allocation failed")
 		return nil, err

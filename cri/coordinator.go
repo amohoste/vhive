@@ -166,12 +166,13 @@ func (c *Coordinator) orchStartVM(ctx context.Context, image, revision string, m
 	)
 
 	bootMetric := metrics.NewBootMetric(revision)
+	netMetric := metrics.NewNetMetric(revision)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*40)
 	defer cancel()
 
 	if !c.withoutOrchestrator {
-		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, bootMetric)
+		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, bootMetric, netMetric)
 		if err != nil {
 			logger.WithError(err).Error("Coordinator failed to start VM")
 		}
@@ -185,6 +186,9 @@ func (c *Coordinator) orchStartVM(ctx context.Context, image, revision string, m
 		bootMetric.SnapBooted = false
 		bootMetric.Failed = false
 		go c.metricsManager.AddBootMetric(bootMetric)
+
+		netMetric.Failed = false
+		go c.metricsManager.AddNetMetric(netMetric)
 	}
 
 	return fi, err
@@ -208,11 +212,12 @@ func (c *Coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 	)
 
 	bootMetric := metrics.NewBootMetric(snap.GetRevisionId())
+	netMetric := metrics.NewNetMetric(snap.GetRevisionId())
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	resp, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap, bootMetric)
+	resp, err = c.orch.LoadSnapshot(ctxTimeout, vmID, snap, bootMetric, netMetric)
 	if err != nil {
 		logger.WithError(err).Error("failed to load VM")
 		return nil, err
@@ -231,6 +236,9 @@ func (c *Coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 		bootMetric.SnapBooted = true
 		bootMetric.Failed = false
 		go c.metricsManager.AddBootMetric(bootMetric)
+
+		netMetric.Failed = false
+		go c.metricsManager.AddNetMetric(netMetric)
 	}
 
 	return fi, err
