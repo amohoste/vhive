@@ -71,7 +71,7 @@ func (c *VmController) delete(containerID string) {
 	go func() {
 		c.Lock()
 		if _, present := c.uVms[containerID]; !present {
-			fmt.Printf("vm with container id %s does not exist\n", containerID)
+			log.Printf("vm with container id %s does not exist\n", containerID)
 		}
 		delete(c.uVms, containerID)
 		c.deletedUvms = append(c.deletedUvms, containerID)
@@ -125,13 +125,13 @@ func (c *VmController) create(image, revision string, memsizeMib, vCpuCount uint
 
 		funcInst, err := c.coordinator.StartVM(context.Background(), image, revision, uint32(memsizeMib), uint32(vCpuCount))
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		err = c.coordinator.InsertActive(containerStr, funcInst)
 
 		c.Lock()
-		fmt.Printf("%s available at %s\n", containerStr, funcInst.StartVMResponse.GuestIP)
+		log.Printf("%s available at %s\n", containerStr, funcInst.StartVMResponse.GuestIP)
 		c.uVms[containerStr] = NewVmInstance(containerStr, image, revision, uint32(memsizeMib), uint32(vCpuCount))
 		c.addedUvms = append(c.addedUvms, containerStr)
 		c.Unlock()
