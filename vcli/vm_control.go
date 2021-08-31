@@ -102,9 +102,11 @@ func (c *VmController) list() {
 	}
 }
 
+
 func (c *VmController) create(image, revision string, memsizeMib, vCpuCount uint) {
 	c.Lock()
 	containerStr := fmt.Sprintf("%d", c.containerId)
+
 	c.containerId += 1
 	c.Unlock()
 

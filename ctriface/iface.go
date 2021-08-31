@@ -153,7 +153,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 	// 4. Turn container into runnable process
 	logger.Debug("StartVM: Creating a new task")
 	tStart = time.Now()
-	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(nil, nil, nil)))
 	bootMetric.NewTask = metrics.ToUS(time.Since(tStart))
 	vm.Task = &task
 	if err != nil {
