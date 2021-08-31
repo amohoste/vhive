@@ -47,4 +47,4 @@ sudo rm -rf /run/firecracker-containerd/containerd.sock.ttrpc \
     /run/firecracker-containerd/io.containerd.runtime.v2.task
 
 echo Creating a fresh devmapper
-$PWD/../create_devmapper.sh
+$PWD/create_devmapper.sh
