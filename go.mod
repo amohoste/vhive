@@ -49,7 +49,7 @@ replace (
 )
 
 require (
-	github.com/c-bata/go-prompt v0.2.6
+	github.com/c-bata/go-prompt v0.2.5
 	github.com/containerd/containerd v1.5.2
 	github.com/coreos/go-iptables v0.5.0
 	github.com/davecgh/go-spew v1.1.1
