@@ -24,7 +24,6 @@ package cri
 
 import (
 	"context"
-	"fmt"
 	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/snapshotting"
 	"github.com/pkg/errors"
@@ -103,10 +102,6 @@ func (c *Coordinator) StopVM(ctx context.Context, containerID string) error {
 	if present {
 		delete(c.activeInstances, containerID)
 	}
-	/*fmt.Printf("Terminating %s\n", containerID)
-	fmt.Printf("T.Activeinstances: %s\n", c.activeInstances)
-	fmt.Printf("T.Present: %s\n", present)
-	fmt.Printf("T.Fi: %s\n", fi)*/
 
 	c.Unlock()
 
@@ -120,7 +115,7 @@ func (c *Coordinator) StopVM(ctx context.Context, containerID string) error {
 	} else if c.orch != nil && c.orch.GetSnapshotsEnabled() {
 		err := c.orchCreateSnapshot(ctx, fi)
 		if err != nil {
-			fmt.Printf("Err creating snapshot %s\n", err)
+			log.Printf("Err creating snapshot %s\n", err)
 		}
 	}
 
@@ -149,11 +144,6 @@ func (c *Coordinator) InsertActive(containerID string, fi *FuncInstance) error {
 	}
 
 	c.activeInstances[containerID] = fi
-
-	/*fmt.Printf("Added %s\n", containerID)
-	fmt.Printf("A.Activeinstances: %s\n", c.activeInstances)
-	fmt.Printf("A.Fi: %s\n", fi)*/
-
 
 	return nil
 }
@@ -254,15 +244,12 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		},
 	)
 
-	//fmt.Printf("Initializing snapshot for revision %s\n", fi.revisionId)
-
 	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount); err == nil {
 		// TODO: maybe needs to be longer
 		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 		defer cancel()
 
 		logger.Debug("creating instance snapshot before stopping")
-		//fmt.Printf("Pausing vm %s\n", fi.vmID)
 
 		snapMetric := metrics.NewSnapMetric(fi.revisionId)
 
@@ -274,14 +261,12 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		//fmt.Printf("Creating snapshot from vm %s\n", fi.vmID)
 		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps, snapMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
 		}
 
-		//fmt.Printf("Committing snapshot for revision %s\n", fi.revisionId)
 		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
 			fi.logger.WithError(err).Error("failed to commit snapshot")
 			return err

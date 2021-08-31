@@ -23,7 +23,6 @@
 package misc
 
 import (
-	"fmt"
 	"github.com/ease-lab/vhive/networking"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,7 +32,7 @@ func NewVMPool(hostIface string) *VMPool {
 	p := new(VMPool)
 	mgr, err := networking.NewNetworkManager(hostIface)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	p.networkManager = mgr
 

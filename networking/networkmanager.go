@@ -3,7 +3,6 @@ package networking
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netns"
@@ -105,7 +104,7 @@ func (mgr *NetworkManager) CreateNetwork(vmID string) error {
 	hostNsHandle, err := netns.Get()
 	defer hostNsHandle.Close()
 	if err != nil {
-		fmt.Printf("Failed to get host ns, %s\n", err)
+		log.Printf("Failed to get host ns, %s\n", err)
 		return err
 	}
 
@@ -113,7 +112,7 @@ func (mgr *NetworkManager) CreateNetwork(vmID string) error {
 	// A.1. Create network namespace for uVM & join network namespace
 	vmNsHandle, err := netns.NewNamed(netCfg.getNamespaceName()) // Switches namespace
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return err
 	}
 	defer vmNsHandle.Close()
@@ -196,7 +195,7 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	hostNsHandle, err := netns.Get()
 	defer hostNsHandle.Close()
 	if err != nil {
-		fmt.Printf("Failed to get host ns, %s\n", err)
+		log.Printf("Failed to get host ns, %s\n", err)
 		return err
 	}
 
