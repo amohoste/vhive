@@ -39,31 +39,31 @@ import (
 
 const snapshotsDir = "/fccd/snapshots"
 
-type coordinator struct {
+type Coordinator struct {
 	sync.Mutex
 	orch   *ctriface.Orchestrator
 	nextID uint64
 	isSparseSnaps bool
 	isMetricMode bool
 
-	activeInstances     map[string]*funcInstance
+	activeInstances     map[string]*FuncInstance
 	withoutOrchestrator bool
 	snapshotManager     *snapshotting.SnapshotManager
 	metricsManager      *metrics.MetricsManager
 }
 
-type coordinatorOption func(*coordinator)
+type coordinatorOption func(*Coordinator)
 
-// withoutOrchestrator is used for testing the coordinator without calling the orchestrator
+// withoutOrchestrator is used for testing the Coordinator without calling the orchestrator
 func withoutOrchestrator() coordinatorOption {
-	return func(c *coordinator) {
+	return func(c *Coordinator) {
 		c.withoutOrchestrator = true
 	}
 }
 
-func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool, isMetricsMode bool, opts ...coordinatorOption) *coordinator {
-	c := &coordinator{
-		activeInstances: make(map[string]*funcInstance),
+func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSnaps bool, isMetricsMode bool, opts ...coordinatorOption) *Coordinator {
+	c := &Coordinator{
+		activeInstances: make(map[string]*FuncInstance),
 		orch:            orch,
 		snapshotManager: snapshotting.NewSnapshotManager(snapshotsDir, snapsCapacityMiB),
 		isSparseSnaps:   isSparseSnaps,
@@ -79,7 +79,7 @@ func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSpars
 }
 
 // Called upon createcontainer CRI request
-func (c *coordinator) startVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+func (c *Coordinator) StartVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*FuncInstance, error) {
 	if c.orch != nil && c.orch.GetSnapshotsEnabled()  {
 		if snap, err := c.snapshotManager.AcquireSnapshot(revision); err == nil {
 			if snap.MemSizeMib != memSizeMib || snap.VCPUCount != vCPUCount {
@@ -96,7 +96,7 @@ func (c *coordinator) startVM(ctx context.Context, image, revision string, memSi
 }
 
 // Called upon removecontainer CRI request
-func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
+func (c *Coordinator) StopVM(ctx context.Context, containerID string) error {
 	c.Lock()
 
 	fi, present := c.activeInstances[containerID]
@@ -128,7 +128,7 @@ func (c *coordinator) stopVM(ctx context.Context, containerID string) error {
 }
 
 // for testing
-func (c *coordinator) isActive(containerID string) bool {
+func (c *Coordinator) isActive(containerID string) bool {
 	c.Lock()
 	defer c.Unlock()
 
@@ -137,7 +137,7 @@ func (c *coordinator) isActive(containerID string) bool {
 }
 
 // Adds an active function instance
-func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
+func (c *Coordinator) InsertActive(containerID string, fi *FuncInstance) error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -158,7 +158,7 @@ func (c *coordinator) insertActive(containerID string, fi *funcInstance) error {
 	return nil
 }
 
-func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+func (c *Coordinator) orchStartVM(ctx context.Context, image, revision string, memSizeMib, vCPUCount uint32) (*FuncInstance, error) {
 	tStartCold := time.Now()
 	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
 	logger := log.WithFields(
@@ -183,12 +183,12 @@ func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, m
 	if !c.withoutOrchestrator {
 		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, bootMetric)
 		if err != nil {
-			logger.WithError(err).Error("coordinator failed to start VM")
+			logger.WithError(err).Error("Coordinator failed to start VM")
 		}
 	}
 
 	coldStartTimeMs := metrics.ToMs(time.Since(tStartCold))
-	fi := newFuncInstance(vmID, image, revision, resp, false, memSizeMib, vCPUCount, coldStartTimeMs)
+	fi := NewFuncInstance(vmID, image, revision, resp, false, memSizeMib, vCPUCount, coldStartTimeMs)
 	logger.Debug("successfully created fresh instance")
 
 	if c.isMetricMode {
@@ -200,7 +200,7 @@ func (c *coordinator) orchStartVM(ctx context.Context, image, revision string, m
 	return fi, err
 }
 
-func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshotting.Snapshot, memSizeMib, vCPUCount uint32) (*funcInstance, error) {
+func (c *Coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshotting.Snapshot, memSizeMib, vCPUCount uint32) (*FuncInstance, error) {
 	tStartCold := time.Now()
 	vmID := strconv.Itoa(int(atomic.AddUint64(&c.nextID, 1)))
 	logger := log.WithFields(
@@ -234,7 +234,7 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 	}
 
 	coldStartTimeMs := metrics.ToMs(time.Since(tStartCold))
-	fi := newFuncInstance(vmID, snap.GetImage(), snap.GetRevisionId(), resp, true, memSizeMib, vCPUCount, coldStartTimeMs)
+	fi := NewFuncInstance(vmID, snap.GetImage(), snap.GetRevisionId(), resp, true, memSizeMib, vCPUCount, coldStartTimeMs)
 	logger.Debug("successfully loaded instance from snapshot")
 
 	if c.isMetricMode {
@@ -246,7 +246,7 @@ func (c *coordinator) orchStartVMSnapshot(ctx context.Context, snap *snapshottin
 	return fi, err
 }
 
-func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) error {
+func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) error {
 	logger := log.WithFields(
 		log.Fields{
 			"vmID":  fi.vmID,
@@ -300,7 +300,7 @@ func (c *coordinator) orchCreateSnapshot(ctx context.Context, fi *funcInstance) 
 }
 
 
-func (c *coordinator) orchStopVM(ctx context.Context, fi *funcInstance) error {
+func (c *Coordinator) orchStopVM(ctx context.Context, fi *FuncInstance) error {
 	if c.withoutOrchestrator {
 		return nil
 	}

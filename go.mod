@@ -49,34 +49,28 @@ replace (
 )
 
 require (
-	github.com/blend/go-sdk v1.20210819.9 // indirect
+	github.com/c-bata/go-prompt v0.2.6
 	github.com/containerd/containerd v1.5.2
+	github.com/coreos/go-iptables v0.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ease-lab/vhive/examples/protobuf/helloworld v0.0.0-00010101000000-000000000000
 	github.com/firecracker-microvm/firecracker-containerd v0.0.0-20210604232636-c2323bc71886
 	github.com/ftrvxmtrx/fd v0.0.0-20150925145434-c6d800382fff
-	github.com/go-multierror/multierror v1.0.2
 	github.com/gogo/googleapis v1.4.1 // indirect
+	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.0
-	github.com/montanaflynn/stats v0.6.5
+	github.com/opencontainers/image-spec v1.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/ricochet2200/go-disk-usage/du v0.0.0-20210707232629-ac9918953285
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
-	github.com/wcharczuk/go-chart v2.0.1+incompatible
-	golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb // indirect
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
-	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
+	go.opencensus.io v0.22.4 // indirect
+	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6 // indirect
 	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887
 	gonum.org/v1/gonum v0.9.0
-	gonum.org/v1/plot v0.9.0
+	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
 	google.golang.org/grpc v1.34.0
 	k8s.io/cri-api v0.20.6
-	github.com/antchfx/xpath v1.2.0 // indirect
-	github.com/coreos/go-iptables v0.5.0
-	github.com/opencontainers/image-spec v1.0.1
-	github.com/tamerh/xml-stream-parser v1.4.0
-	github.com/tamerh/xpath v1.0.0 // indirect
-	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 )

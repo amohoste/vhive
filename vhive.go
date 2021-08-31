@@ -24,6 +24,7 @@ package main
 
 import (
 	"flag"
+	"github.com/ease-lab/vhive/vcli"
 	"math/rand"
 	"net"
 	"os"
@@ -39,9 +40,6 @@ import (
 
 const (
 	port    = ":3333"
-	fwdPort = ":3334"
-
-	testImageName = "vhiveease/helloworld:var_workload"
 )
 
 var (
@@ -51,6 +49,7 @@ var (
 	isSnapshotsEnabled *bool
 	isLazyMode         *bool
 	isMetricsMode      *bool
+	isCliMode          *bool
 	criSock            *string
 	hostIface          *string
 )
@@ -76,6 +75,7 @@ func main() {
 	isMetricsMode = flag.Bool("metrics", false, "Calculate metrics")
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
+	isCliMode = flag.Bool("climode", false, "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 
 	// Parse cmd line arguments
 	flag.Parse()
@@ -112,8 +112,20 @@ func main() {
 		ctriface.WithLazyMode(*isLazyMode),
 	)
 
-	go criServe(*snapsCapacityMiB, *isSparseSnaps, *isMetricsMode)
-	orchServe()
+	criService, err := fccdcri.NewService(orch, *snapsCapacityMiB, *isSparseSnaps, *isMetricsMode)
+	if err != nil {
+		log.Fatalf("failed to create CRI service %v", err)
+	}
+
+	go criServe(criService)
+
+	if !*isCliMode {
+		orchServe()
+	} else {
+		go orchServe()
+		vcli.CreateCli(criService.Coordinator)
+	}
+
 }
 
 type server struct {
@@ -121,18 +133,13 @@ type server struct {
 }
 
 // Serve K8S CRI requests on specified socket
-func criServe(snapsCapacityMiB int64, isSparseSnaps, isMetricsMode bool) {
+func criServe(criService *fccdcri.Service) {
 	lis, err := net.Listen("unix", *criSock)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	s := grpc.NewServer()
-
-	criService, err := fccdcri.NewService(orch, snapsCapacityMiB, isSparseSnaps, isMetricsMode)
-	if err != nil {
-		log.Fatalf("failed to create CRI service %v", err)
-	}
 
 	criService.Register(s)
 

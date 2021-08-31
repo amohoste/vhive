@@ -27,28 +27,28 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type funcInstance struct {
-	vmID                   string
-	image                  string
-	revisionId             string
-	snapBooted             bool
-	coldStartTimeMs        int64
-	memSizeMib             uint32
-	vCPUCount              uint32
-	logger                 *log.Entry
-	startVMResponse        *ctriface.StartVMResponse
+type FuncInstance struct {
+	vmID            string
+	image           string
+	revisionId      string
+	snapBooted      bool
+	coldStartTimeMs int64
+	memSizeMib      uint32
+	vCPUCount       uint32
+	logger          *log.Entry
+	StartVMResponse *ctriface.StartVMResponse
 }
 
-func newFuncInstance(vmID, image, revisionId string, startVMResponse *ctriface.StartVMResponse, snapBooted bool, memSizeMib, vCPUCount uint32, coldstartTimeMs int64) *funcInstance {
-	f := &funcInstance{
-		vmID:                   vmID,
-		image:                  image,
-		revisionId:             revisionId,
-		startVMResponse:        startVMResponse,
-		snapBooted:             snapBooted,
-		memSizeMib:             memSizeMib,
-		vCPUCount:              vCPUCount,
-		coldStartTimeMs:        coldstartTimeMs,
+func NewFuncInstance(vmID, image, revisionId string, startVMResponse *ctriface.StartVMResponse, snapBooted bool, memSizeMib, vCPUCount uint32, coldstartTimeMs int64) *FuncInstance {
+	f := &FuncInstance{
+		vmID:            vmID,
+		image:           image,
+		revisionId:      revisionId,
+		StartVMResponse: startVMResponse,
+		snapBooted:      snapBooted,
+		memSizeMib:      memSizeMib,
+		vCPUCount:       vCPUCount,
+		coldStartTimeMs: coldstartTimeMs,
 	}
 
 	f.logger = log.WithFields(

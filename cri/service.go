@@ -52,7 +52,7 @@ type Service struct {
 	orch               *ctriface.Orchestrator
 	stockRuntimeClient criapi.RuntimeServiceClient
 	stockImageClient   criapi.ImageServiceClient
-	coordinator        *coordinator
+	Coordinator        *Coordinator
 
 	// to store mapping from pod to guest image and port temporarily
 	podVMConfigs map[string]*VMConfig
@@ -86,7 +86,7 @@ func NewService(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSna
 		orch:               orch,
 		stockRuntimeClient: stockRuntimeClient,
 		stockImageClient:   stockImageClient,
-		coordinator:        newCoordinator(orch, snapsCapacityMiB, isSparseSnaps, isMetricsMode),
+		Coordinator:        newCoordinator(orch, snapsCapacityMiB, isSparseSnaps, isMetricsMode),
 		podVMConfigs:       make(map[string]*VMConfig),
 	}
 

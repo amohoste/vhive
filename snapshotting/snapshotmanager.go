@@ -34,6 +34,11 @@ func NewSnapshotManager(baseFolder string, capacityMib int64) *SnapshotManager {
 	manager.clock = 0
 	manager.capacityMib = capacityMib
 	manager.usedMib = 0
+
+	// Clean & init basefolder
+	os.RemoveAll(manager.baseFolder)
+	os.MkdirAll(manager.baseFolder, os.ModePerm)
+
 	return manager
 }
 

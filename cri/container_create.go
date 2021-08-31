@@ -107,14 +107,14 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 	}
 
 	// Start vm
-	funcInst, err := s.coordinator.startVM(context.Background(), guestImage, revision, memSizeMib, vCPUCount)
+	funcInst, err := s.Coordinator.StartVM(context.Background(), guestImage, revision, memSizeMib, vCPUCount)
 	if err != nil {
 		log.WithError(err).Error("failed to start VM")
 		return nil, err
 	}
 
 	// Temporarily store vm config so we can access this info when creating the queue-proxy container
-	vmConfig := &VMConfig{guestIP: funcInst.startVMResponse.GuestIP, guestPort: guestPortValue}
+	vmConfig := &VMConfig{guestIP: funcInst.StartVMResponse.GuestIP, guestPort: guestPortValue}
 	s.insertPodVMConfig(r.GetPodSandboxId(), vmConfig)
 
 	// Wait for placeholder user container to be created
@@ -127,7 +127,7 @@ func (s *Service) createUserContainer(ctx context.Context, r *criapi.CreateConta
 	}
 	
 	containerdID := stockResp.ContainerId
-	err = s.coordinator.insertActive(containerdID, funcInst)
+	err = s.Coordinator.InsertActive(containerdID, funcInst)
 	if err != nil {
 		log.WithError(err).Error("failed to insert active VM")
 		return nil, err

@@ -35,7 +35,7 @@ func (s *Service) RemoveContainer(ctx context.Context, r *criapi.RemoveContainer
 	containerID := r.GetContainerId()
 
 	go func() {
-		if err := s.coordinator.stopVM(context.Background(), containerID); err != nil {
+		if err := s.Coordinator.StopVM(context.Background(), containerID); err != nil {
 			log.WithError(err).Error("failed to stop microVM")
 		}
 	}()
