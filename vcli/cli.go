@@ -1,4 +1,4 @@
-package vcli
+package main
 
 import (
 	"github.com/c-bata/go-prompt"
@@ -54,8 +54,9 @@ func executor(input string) {
 }
 
 func CreateCli(coordinator *fccdcri.Coordinator) {
+//func main() {
 	args = newCliArgs()
-	vmControl = newVmController(coordinator)
+	newVmController(coordinator) // vmControl = newVmController()
 
 	p := prompt.New(
 		executor,

@@ -1,10 +1,12 @@
-package vcli
+package main
 
 import (
 	"context"
 	"fmt"
 	fccdcri "github.com/ease-lab/vhive/cri"
 	log "github.com/sirupsen/logrus"
+	"time"
+
 	"sync"
 )
 
@@ -22,6 +24,7 @@ type VmController struct {
 }
 
 func newVmController(coordinator *fccdcri.Coordinator) *VmController {
+//func newVmController() *VmController {
 	c := &VmController{
 		uVms: make(map[string]*VmInstance),
 		coordinator: coordinator,
@@ -30,6 +33,12 @@ func newVmController(coordinator *fccdcri.Coordinator) *VmController {
 		addedUvms: make([]string, 0),
 		deletedUvms: make([]string, 0),
 	}
+
+	go func() {
+		for range time.Tick(1 * time.Second) {
+			c.copySafeUvms()
+		}
+	}()
 
 	return c
 }
@@ -59,21 +68,24 @@ func (c *VmController) copyUvms() map[string]*VmInstance {
 }
 
 func (c *VmController) delete(containerID string) {
-	c.Lock()
-	if _, present := c.uVms[containerID]; !present {
-		fmt.Printf("vm with container id %s does not exist\n", containerID)
-	}
-	delete(c.uVms, containerID)
-	c.deletedUvms = append(c.deletedUvms, containerID)
-	c.Unlock()
-	if err := c.coordinator.StopVM(context.Background(), containerID); err != nil { // TODO
-			log.WithError(err).Error("failed to stop microVM")
-	}
+	go func() {
+		c.Lock()
+		if _, present := c.uVms[containerID]; !present {
+			fmt.Printf("vm with container id %s does not exist\n", containerID)
+		}
+		delete(c.uVms, containerID)
+		c.deletedUvms = append(c.deletedUvms, containerID)
+		c.Unlock()
+		if err := c.coordinator.StopVM(context.Background(), containerID); err != nil {
+				log.WithError(err).Error("failed to stop microVM")
+		}
+	}()
 }
 
 
 func (c *VmController) deleteAll() {
-	for k, _ := range c.safeUvms {
+	uVms := c.copyUvms()
+	for k, _ := range uVms {
 		c.delete(k)
 	}
 }
@@ -104,22 +116,24 @@ func (c *VmController) list() {
 
 
 func (c *VmController) create(image, revision string, memsizeMib, vCpuCount uint) {
-	c.Lock()
-	containerStr := fmt.Sprintf("%d", c.containerId)
+	go func() {
+		c.Lock()
+		containerStr := fmt.Sprintf("%d", c.containerId)
 
-	c.containerId += 1
-	c.Unlock()
+		c.containerId += 1
+		c.Unlock()
 
-	funcInst, err := c.coordinator.StartVM(context.Background(), image, revision, uint32(memsizeMib), uint32(vCpuCount))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = c.coordinator.InsertActive(containerStr, funcInst)
+		funcInst, err := c.coordinator.StartVM(context.Background(), image, revision, uint32(memsizeMib), uint32(vCpuCount))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = c.coordinator.InsertActive(containerStr, funcInst)
 
-	c.Lock()
-	fmt.Printf("%s available at %s\n", containerStr, funcInst.StartVMResponse.GuestIP)
-	c.uVms[containerStr] = NewVmInstance(containerStr, image, revision, uint32(memsizeMib), uint32(vCpuCount))
-	c.addedUvms = append(c.addedUvms, containerStr)
-	c.Unlock()
+		c.Lock()
+		fmt.Printf("%s available at %s\n", containerStr, funcInst.StartVMResponse.GuestIP)
+		c.uVms[containerStr] = NewVmInstance(containerStr, image, revision, uint32(memsizeMib), uint32(vCpuCount))
+		c.addedUvms = append(c.addedUvms, containerStr)
+		c.Unlock()
+	}()
 }

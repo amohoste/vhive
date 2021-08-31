@@ -1,4 +1,4 @@
-package vcli
+package main
 
 import "fmt"
 
