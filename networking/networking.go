@@ -122,7 +122,7 @@ func deleteDefaultGateway(gatewayIp string) error {
 
 func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 	cmd := exec.Command(
-		"iptables", "-t", "nat", "-A", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp,
+		"iptables", "-n", "-t", "nat", "-A", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp,
 	)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
@@ -130,7 +130,7 @@ func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 	}
 
 	cmd = exec.Command(
-		"iptables", "-t", "nat", "-A", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp,
+		"iptables", "-n", "-t", "nat", "-A", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp,
 	)
 	_, err = cmd.CombinedOutput()
 	if err != nil {
