@@ -24,8 +24,10 @@
 
 PWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-sudo kubeadm reset --cri-socket /etc/firecracker-containerd/fccd-cri.sock -f
 sudo pkill -INT vhive
+
+sudo kubeadm reset --cri-socket /etc/firecracker-containerd/fccd-cri.sock -f
+
 sudo pkill -9 firecracker-containerd
 sudo pkill -9 firecracker
 sudo pkill -9 containerd
