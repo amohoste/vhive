@@ -1,4 +1,4 @@
-package main
+package vcli
 
 import (
 	"github.com/c-bata/go-prompt"
