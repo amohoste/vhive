@@ -259,7 +259,7 @@ func deleteNatRules(vmNsHandle netns.NsHandle) error {
 	return nil
 }
 
-func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwardHandle uint64) error {
+func setupForwardRules(vethHostName, hostIface string) error {
 	conn := nftables.Conn{}
 
 	// 1. add table ip filter
@@ -271,7 +271,7 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 	// 2. add chain ip filter FORWARD { type filter hook forward priority 0; policy accept; }
 	polAccept := nftables.ChainPolicyAccept
 	fwdCh := &nftables.Chain{
-		Name:     "FORWARD",
+		Name:     fmt.Sprintf("FORWARD%s", vethHostName),
 		Table:    filterTable,
 		Type:     nftables.ChainTypeFilter,
 		Priority: 0,
@@ -305,7 +305,6 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 				Kind: expr.VerdictAccept,
 			},
 		},
-		Handle: outForwardHandle,
 	}
 
 	// 4. Iptables: -A FORWARD -o veth1-1 -i eno49 -j ACCEPT
@@ -334,19 +333,19 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 				Kind: expr.VerdictAccept,
 			},
 		},
-		Handle: inForwardHandle,
 	}
-	//conn.AddTable(filterTable)
-	//conn.AddChain(fwdCh)
+	conn.AddTable(filterTable)
+	conn.AddChain(fwdCh)
 	conn.AddRule(outRule)
 	conn.AddRule(inRule)
+
 	if err := conn.Flush(); err != nil {
 		return errors.Wrapf(err, "creating forward rules")
 	}
 	return nil
 }
 
-func deleteForwardRules(outForwardHandle, inForwardHandle uint64) error {
+func deleteForwardRules(vethHostName string) error {
 	conn := nftables.Conn{}
 
 	// 1. add table ip filter
@@ -358,7 +357,7 @@ func deleteForwardRules(outForwardHandle, inForwardHandle uint64) error {
 	// 2. add chain ip filter FORWARD { type filter hook forward priority 0; policy accept; }
 	polAccept := nftables.ChainPolicyAccept
 	fwdCh := &nftables.Chain{
-		Name:     "FORWARD",
+		Name:     fmt.Sprintf("FORWARD%s", vethHostName),
 		Table:    filterTable,
 		Type:     nftables.ChainTypeFilter,
 		Priority: 0,
@@ -366,22 +365,8 @@ func deleteForwardRules(outForwardHandle, inForwardHandle uint64) error {
 		Policy:   &polAccept,
 	}
 
-	if err := conn.DelRule(&nftables.Rule{
-		Table:  filterTable,
-		Chain:  fwdCh,
-		Handle: outForwardHandle,
-	}); err != nil {
-		return errors.Wrapf(err, "deleting out forward rule")
-	}
-
-	if err := conn.DelRule(&nftables.Rule{
-		Table:  filterTable,
-		Chain:  fwdCh,
-		Handle: inForwardHandle,
-	}); err != nil {
-		return errors.Wrapf(err, "deleting in forward rule")
-	}
-
+	// Apply
+	conn.DelChain(fwdCh)
 	if err := conn.Flush(); err != nil {
 		return errors.Wrapf(err, "deleting forward rules")
 	}
