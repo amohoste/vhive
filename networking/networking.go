@@ -302,7 +302,7 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
 			},
 			&expr.Verdict{
-				Kind: expr.VerdictAccept,
+				Kind: expr.VerdictDrop,
 			},
 		},
 		Handle: outForwardHandle,
