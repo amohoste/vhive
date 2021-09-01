@@ -262,28 +262,11 @@ func deleteNatRules(vmNsHandle netns.NsHandle) error {
 func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwardHandle uint64) error {
 	conn := nftables.Conn{}
 
-	// 1. add table ip filter
-	filterTable := &nftables.Table{
-		Name:   "filter",
-		Family: nftables.TableFamilyIPv4,
-	}
-
-	// 2. add chain ip filter FORWARD { type filter hook forward priority 0; policy accept; }
-	polAccept := nftables.ChainPolicyAccept
-	fwdCh := &nftables.Chain{
-		Name:     "FORWARD",
-		Table:    filterTable,
-		Type:     nftables.ChainTypeFilter,
-		Priority: 0,
-		Hooknum:  nftables.ChainHookForward,
-		Policy:   &polAccept,
-	}
-
-	// 3. Iptables: -A FORWARD -i veth1-1 -o eno49 -j ACCEPT
-	// 3.1 add rule ip filter FORWARD iifname veth1-1 oifname eno49 counter accept
+	// 1. Iptables: -A FORWARD -i veth1-1 -o eno49 -j ACCEPT
+	// 1.1 add rule ip filter FORWARD iifname veth1-1 oifname eno49 counter accept
 	outRule := &nftables.Rule{
-		Table: filterTable,
-		Chain: fwdCh,
+		Table: &nftables.Table{Name: "filter", Family: nftables.TableFamilyIPv4},
+		Chain: &nftables.Chain{Name: "FORWARD", Type: nftables.ChainTypeFilter},
 		Exprs: []expr.Any{
 			// Load iffname in register 1
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
@@ -308,11 +291,11 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 		Handle: outForwardHandle,
 	}
 
-	// 4. Iptables: -A FORWARD -o veth1-1 -i eno49 -j ACCEPT
-	// 4.1 add rule ip filter FORWARD iifname eno49 oifname veth1-1 counter accept
+	// 2. Iptables: -A FORWARD -o veth1-1 -i eno49 -j ACCEPT
+	// 2.1 add rule ip filter FORWARD iifname eno49 oifname veth1-1 counter accept
 	inRule := &nftables.Rule{
-		Table: filterTable,
-		Chain: fwdCh,
+		Table: &nftables.Table{Name: "filter", Family: nftables.TableFamilyIPv4},
+		Chain: &nftables.Chain{Name: "FORWARD", Type: nftables.ChainTypeFilter},
 		Exprs: []expr.Any{
 			// Load oifname in register 1
 			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
@@ -337,10 +320,11 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 		Handle: inForwardHandle,
 	}
 
-	conn.AddTable(filterTable)
-	conn.AddChain(fwdCh)
 	conn.AddRule(outRule)
 	conn.AddRule(inRule)
+	if err := conn.Flush(); err != nil {
+		return errors.Wrapf(err, "creating forward rules")
+	}
 	return nil
 }
 
@@ -360,7 +344,7 @@ func deleteForwardRules(outForwardHandle, inForwardHandle uint64) error {
 		Chain:  &nftables.Chain{Name: "FORWARD", Type: nftables.ChainTypeFilter},
 		Handle: inForwardHandle,
 	}); err != nil {
-
+		return errors.Wrapf(err, "deleting in forward rule")
 	}
 
 	if err := conn.Flush(); err != nil {
