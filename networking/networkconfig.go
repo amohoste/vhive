@@ -66,3 +66,11 @@ func (cfg *NetworkConfig) GetNamespacePath() string {
 func (cfg *NetworkConfig) GetContainerCIDR() string {
 	return cfg.containerCIDR
 }
+
+func (cfg *NetworkConfig) GetOutForwardHandle() uint64 {
+	return uint64(2 * cfg.id)
+}
+
+func (cfg *NetworkConfig) GetInForwardHandle() uint64 {
+	return uint64(2 * cfg.id + 1)
+}

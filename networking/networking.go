@@ -241,28 +241,6 @@ func setupNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle
 		return errors.Wrapf(err, "creating nat rules")
 	}
 	return nil
-
-	/*
-	ipt, err := iptables.New()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
-	}
-
-	// for packets that leave the namespace and have the source IP address of the original guest, rewrite the source
-	// address to clone address
-	err = ipt.Append("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp)//, "--wait") Not needed since in namespace and not modified by others?
-	if err != nil {
-		return errors.Wrapf(err, "adding iptable POSTROUTING rule")
-	}
-
-	// do the reverse operation; rewrites the destination address of packets heading towards the clone
-	// address to source address
-	err = ipt.Append("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp)//, "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "adding iptable POSTROUTING rule")
-	}
-
-	return nil*/
 }
 
 func deleteNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle) error {
@@ -279,30 +257,9 @@ func deleteNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandl
 		return errors.Wrapf(err, "deleting nat rules")
 	}
 	return nil
-
-	/*ipt, err := iptables.New()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
-	}
-
-	// for packets that leave the namespace and have the source IP address of the original guest, rewrite the source
-	// address to clone address
-	err = ipt.Delete("nat", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp)//, "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "deleting iptable POSTROUTING rule")
-	}
-
-	// do the reverse operation; rewrites the destination address of packets heading towards the clone
-	// address to source address
-	err = ipt.Delete("nat", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp)//, "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "deleting iptable POSTROUTING rule")
-	}
-
-	return nil*/
 }
 
-func setupForwardRules(vethHostName, hostIface string) error {
+func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwardHandle uint64) error {
 	conn := nftables.Conn{}
 
 	// 1. add table ip filter
@@ -348,6 +305,7 @@ func setupForwardRules(vethHostName, hostIface string) error {
 				Kind: expr.VerdictAccept,
 			},
 		},
+		Handle: outForwardHandle,
 	}
 
 	// 4. Iptables: -A FORWARD -o veth1-1 -i eno49 -j ACCEPT
@@ -376,6 +334,7 @@ func setupForwardRules(vethHostName, hostIface string) error {
 				Kind: expr.VerdictAccept,
 			},
 		},
+		Handle: inForwardHandle,
 	}
 
 	conn.AddTable(filterTable)
@@ -383,122 +342,31 @@ func setupForwardRules(vethHostName, hostIface string) error {
 	conn.AddRule(outRule)
 	conn.AddRule(inRule)
 	return nil
-
-	/*ipt, err := iptables.New()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
-	}
-
-	err = ipt.Append("filter", "FORWARD", "-i", vethHostName, "-o", hostIface, "-j", "ACCEPT", "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "adding iptable FORWARD rule")
-	}
-
-	err = ipt.Append("filter", "FORWARD", "-o", vethHostName, "-i", hostIface, "-j", "ACCEPT", "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "adding iptable FORWARD rule")
-	}
-	return nil*/
 }
 
-func deleteForwardRules(vethHostName, hostIface string) error {
+func deleteForwardRules(vethHostName, hostIface string, outForwardHandle, inForwardHandle uint64) error {
 	conn := nftables.Conn{}
-	filterTable := &nftables.Table{
-		Name:   "filter",
-		Family: nftables.TableFamilyIPv4,
-	}
 
-	polAccept := nftables.ChainPolicyAccept
-	fwdCh := &nftables.Chain{
-		Name:     "FORWARD",
-		Table:    filterTable,
-		Type:     nftables.ChainTypeFilter,
-		Priority: 0,
-		Hooknum:  nftables.ChainHookForward,
-		Policy:   &polAccept,
-	}
-
-	outRule := &nftables.Rule{
-		Table: filterTable,
-		Chain: fwdCh,
-		Exprs: []expr.Any{
-			// Load iffname in register 1
-			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			// Check iifname == veth1-0
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
-			},
-			// Load oif in register 1
-			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
-			// Check iifname == veth1-0
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
-			},
-			&expr.Verdict{
-				Kind: expr.VerdictAccept,
-			},
-		},
-	}
-
-	inRule := &nftables.Rule{
-		Table: filterTable,
-		Chain: fwdCh,
-		Exprs: []expr.Any{
-			// Load oifname in register 1
-			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
-			// Check iifname == veth1-0
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
-			},
-			// Load oif in register 1
-			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			// Check iifname == veth1-0
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
-			},
-			&expr.Verdict{
-				Kind: expr.VerdictAccept,
-			},
-		},
-	}
-
-	// Apply
-	if err := conn.DelRule(outRule); err != nil {
+	if err := conn.DelRule(&nftables.Rule{
+		Table:  &nftables.Table{Name: "filter", Family: nftables.TableFamilyIPv4},
+		Chain:  &nftables.Chain{Name: "FORWARD", Type: nftables.ChainTypeFilter},
+		Handle: outForwardHandle,
+	}); err != nil {
 		return errors.Wrapf(err, "deleting out forward rule")
 	}
 
-	if err := conn.DelRule(inRule); err != nil {
-		return errors.Wrapf(err, "deleting in forward rule")
+	if err := conn.DelRule(&nftables.Rule{
+		Table:  &nftables.Table{Name: "filter", Family: nftables.TableFamilyIPv4},
+		Chain:  &nftables.Chain{Name: "FORWARD", Type: nftables.ChainTypeFilter},
+		Handle: inForwardHandle,
+	}); err != nil {
+
 	}
 
 	if err := conn.Flush(); err != nil {
 		return errors.Wrapf(err, "deleting forward rules")
 	}
 	return nil
-
-	/*ipt, err := iptables.New()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
-	}
-
-	err = ipt.Delete("filter", "FORWARD", "-i", vethHostName, "-o", hostIface, "-j", "ACCEPT", "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "deleting iptable FORWARD rule")
-	}
-
-	err = ipt.Delete("filter", "FORWARD", "-o", vethHostName, "-i", hostIface, "-j", "ACCEPT", "--wait")
-	if err != nil {
-		return errors.Wrapf(err, "deleting iptable FORWARD rule")
-	}
-	return nil*/
 }
 
 func addRoute(destIp, gatewayIp string) error {

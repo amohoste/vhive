@@ -196,7 +196,7 @@ func (mgr *NetworkManager) CreateNetwork(vmID string, netMetric *metrics.NetMetr
 
 	// B.4 Setup nat to route traffic out of veth device
 	tStart = time.Now()
-	if err := setupForwardRules(netCfg.getVeth1Name(), mgr.hostIfaceName); err != nil {
+	if err := setupForwardRules(netCfg.getVeth1Name(), mgr.hostIfaceName, netCfg.GetOutForwardHandle(), netCfg.GetInForwardHandle()); err != nil {
 		return err
 	}
 	netMetric.SetForward = metrics.ToUS(time.Since(tStart))
