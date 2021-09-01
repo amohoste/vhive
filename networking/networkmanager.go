@@ -216,7 +216,7 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	netCfg := mgr.GetConfig(vmID)
 
 	// Delete nat to route traffic out of veth device
-	if err := deleteForwardRules(netCfg.getVeth1Name(), mgr.hostIfaceName); err != nil {
+	if err := deleteForwardRules(netCfg.GetOutForwardHandle(), netCfg.GetInForwardHandle()); err != nil {
 		return err
 	}
 
@@ -246,7 +246,7 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	}
 
 	// Delete NAT rules
-	if err := deleteNatRules(netCfg.getVeth0Name(), netCfg.getContainerIP(), netCfg.GetCloneIP(), vmNsHandle); err != nil {
+	if err := deleteNatRules(vmNsHandle); err != nil {
 		return err
 	}
 

@@ -243,7 +243,7 @@ func setupNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle
 	return nil
 }
 
-func deleteNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle) error {
+func deleteNatRules(vmNsHandle netns.NsHandle) error {
 	conn := nftables.Conn{NetNS: int(vmNsHandle)}
 
 	natTable := &nftables.Table{
@@ -344,7 +344,7 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 	return nil
 }
 
-func deleteForwardRules(vethHostName, hostIface string, outForwardHandle, inForwardHandle uint64) error {
+func deleteForwardRules(outForwardHandle, inForwardHandle uint64) error {
 	conn := nftables.Conn{}
 
 	if err := conn.DelRule(&nftables.Rule{
