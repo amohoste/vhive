@@ -50,6 +50,7 @@ sudo apt-get -y install \
     software-properties-common \
     iproute2 \
     pigz \
+    nftables \
     skopeo >> /dev/null
 
 
@@ -91,6 +92,10 @@ sudo sysctl --quiet --system
 
 # NAT setup
 hostiface=$(sudo route | grep default | tr -s ' ' | cut -d ' ' -f 8)
-sudo iptables -t nat -A POSTROUTING -o $hostiface -j MASQUERADE
-sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+sudo nft 'add table ip filter'
+sudo nft 'add chain ip filter FORWARD { type filter hook forward priority 0; policy accept; }'
+sudo nft 'add rule ip filter FORWARD ct state related,established counter accept'
+sudo nft 'add table ip nat'
+sudo nft 'add chain ip nat POSTROUTING { type nat hook postrouting priority 0; policy accept; }'
+sudo nft 'add rule ip nat POSTROUTING oifname $hostiface counter masquerade'
 

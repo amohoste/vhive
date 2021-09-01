@@ -2,13 +2,14 @@ package networking
 
 import (
 	"fmt"
-	"github.com/coreos/go-iptables/iptables"
+	"github.com/google/nftables"
+	"github.com/google/nftables/expr"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 	"io/ioutil"
 	"net"
-	"os/exec"
 	"regexp"
 	"strconv"
 )
@@ -120,21 +121,124 @@ func deleteDefaultGateway(gatewayIp string) error {
 	return nil
 }
 
-func setupNatRules(vethVmName, hostIp, cloneIp string) error {
-	cmd := exec.Command(
-		"iptables", "-n", "-t", "nat", "-A", "POSTROUTING", "-o", vethVmName, "-s", hostIp, "-j", "SNAT", "--to", cloneIp,
-	)
-	_, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
+func setupNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle) error {
+	conn := nftables.Conn{NetNS: int(vmNsHandle)}
+
+	// 1. add table ip nat
+	natTable := &nftables.Table{
+		Name:   "nat",
+		Family: nftables.TableFamilyIPv4,
 	}
 
-	cmd = exec.Command(
-		"iptables", "-n", "-t", "nat", "-A", "PREROUTING", "-i", vethVmName, "-d", cloneIp, "-j", "DNAT", "--to", hostIp,
-	)
-	_, err = cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "creating ip tables")
+	// 2. Iptables: -t nat -A POSTROUTING -o veth1-0 -s 172.16.0.2 -j SNAT --to 192.168.0.1
+	// 2.1 add chain ip nat POSTROUTING { type nat hook postrouting priority 0; policy accept; }
+	polAccept := nftables.ChainPolicyAccept
+	postRouteCh := &nftables.Chain{
+		Name:     "POSTROUTING",
+		Table:    natTable,
+		Type:     nftables.ChainTypeNAT,
+		Priority: 0,
+		Hooknum:  nftables.ChainHookPostrouting,
+		Policy:   &polAccept,
+	}
+
+	// 2.2 add rule ip nat POSTROUTING oifname veth1-0 ip saddr 172.16.0.2 counter snat to 192.168.0.1
+	snatRule := &nftables.Rule{
+		Table: natTable,
+		Chain: postRouteCh,
+		Exprs: []expr.Any{
+			// Load iffname in register 1
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethVmName)),
+			},
+			// Load source IP address (offset 12 bytes network header) in register 1
+			&expr.Payload{
+				DestRegister: 1,
+				Base:         expr.PayloadBaseNetworkHeader,
+				Offset:       12,
+				Len:          4,
+			},
+			// Check source ip address == 172.16.0.2
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     net.ParseIP(hostIp).To4(),
+			},
+			// Load snatted address (192.168.0.1) in register 1
+			&expr.Immediate{
+				Register: 1,
+				Data:     net.ParseIP(cloneIp).To4(),
+			},
+			&expr.NAT{
+				Type:        expr.NATTypeSourceNAT, // Snat
+				Family:      unix.NFPROTO_IPV4,
+				RegAddrMin:  1,
+			},
+		},
+	}
+
+	// 3. Iptables: -t nat -A PREROUTING -i veth1-0 -d 192.168.0.1 -j DNAT --to 172.16.0.2
+	// 3.1 add chain ip nat PREROUTING { type nat hook prerouting priority 0; policy accept; }
+	preRouteCh := &nftables.Chain{
+		Name:     "PREROUTING",
+		Table:    natTable,
+		Type:     nftables.ChainTypeNAT,
+		Priority: 0,
+		Hooknum:  nftables.ChainHookPrerouting,
+		Policy:   &polAccept,
+	}
+
+	// 3.2 add rule ip nat PREROUTING iifname veth1-0 ip daddr 192.168.0.1 counter dnat to 172.16.0.2
+	dnatRule := &nftables.Rule{
+		Table: natTable,
+		Chain: preRouteCh,
+		Exprs: []expr.Any{
+			// Load iffname in register 1
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethVmName)),
+			},
+			// Load destination IP address (offset 16 bytes network header) in register 1
+			&expr.Payload{
+				DestRegister: 1,
+				Base:         expr.PayloadBaseNetworkHeader,
+				Offset:       16,
+				Len:          4,
+			},
+			// Check destination ip address == 192.168.0.1
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     net.ParseIP(cloneIp).To4(),
+			},
+			// Load dnatted address (172.16.0.2) in register 1
+			&expr.Immediate{
+				Register: 1,
+				Data:     net.ParseIP(hostIp).To4(),
+			},
+			&expr.NAT{
+				Type:        expr.NATTypeDestNAT, // Dnat
+				Family:      unix.NFPROTO_IPV4,
+				RegAddrMin:  1,
+			},
+		},
+	}
+
+	// Apply
+	conn.AddTable(natTable)
+	conn.AddChain(postRouteCh)
+	conn.AddRule(snatRule)
+	conn.AddChain(preRouteCh)
+	conn.AddRule(dnatRule)
+	if err := conn.Flush(); err != nil {
+		return errors.Wrapf(err, "creating nat rules")
 	}
 	return nil
 
@@ -161,8 +265,22 @@ func setupNatRules(vethVmName, hostIp, cloneIp string) error {
 	return nil*/
 }
 
-func deleteNatRules(vethVmName, hostIp, cloneIp string) error {
-	ipt, err := iptables.New()
+func deleteNatRules(vethVmName, hostIp, cloneIp string, vmNsHandle netns.NsHandle) error {
+	conn := nftables.Conn{NetNS: int(vmNsHandle)}
+
+	natTable := &nftables.Table{
+		Name:   "nat",
+		Family: nftables.TableFamilyIPv4,
+	}
+
+	// Apply
+	conn.DelTable(natTable)
+	if err := conn.Flush(); err != nil {
+		return errors.Wrapf(err, "deleting nat rules")
+	}
+	return nil
+
+	/*ipt, err := iptables.New()
 	if err != nil {
 		return errors.Wrapf(err, "creating ip tables")
 	}
@@ -181,11 +299,92 @@ func deleteNatRules(vethVmName, hostIp, cloneIp string) error {
 		return errors.Wrapf(err, "deleting iptable POSTROUTING rule")
 	}
 
-	return nil
+	return nil*/
 }
 
 func setupForwardRules(vethHostName, hostIface string) error {
-	ipt, err := iptables.New()
+	conn := nftables.Conn{}
+
+	// 1. add table ip filter
+	filterTable := &nftables.Table{
+		Name:   "filter",
+		Family: nftables.TableFamilyIPv4,
+	}
+
+	// 2. add chain ip filter FORWARD { type filter hook forward priority 0; policy accept; }
+	polAccept := nftables.ChainPolicyAccept
+	fwdCh := &nftables.Chain{
+		Name:     "FORWARD",
+		Table:    filterTable,
+		Type:     nftables.ChainTypeFilter,
+		Priority: 0,
+		Hooknum:  nftables.ChainHookForward,
+		Policy:   &polAccept,
+	}
+
+	// 3. Iptables: -A FORWARD -i veth1-1 -o eno49 -j ACCEPT
+	// 3.1 add rule ip filter FORWARD iifname veth1-1 oifname eno49 counter accept
+	outRule := &nftables.Rule{
+		Table: filterTable,
+		Chain: fwdCh,
+		Exprs: []expr.Any{
+			// Load iffname in register 1
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
+			},
+			// Load oif in register 1
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
+			},
+			&expr.Verdict{
+				Kind: expr.VerdictAccept,
+			},
+		},
+	}
+
+	// 4. Iptables: -A FORWARD -o veth1-1 -i eno49 -j ACCEPT
+	// 4.1 add rule ip filter FORWARD iifname eno49 oifname veth1-1 counter accept
+	inRule := &nftables.Rule{
+		Table: filterTable,
+		Chain: fwdCh,
+		Exprs: []expr.Any{
+			// Load oifname in register 1
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
+			},
+			// Load oif in register 1
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
+			},
+			&expr.Verdict{
+				Kind: expr.VerdictAccept,
+			},
+		},
+	}
+
+	conn.AddTable(filterTable)
+	conn.AddChain(fwdCh)
+	conn.AddRule(outRule)
+	conn.AddRule(inRule)
+	return nil
+
+	/*ipt, err := iptables.New()
 	if err != nil {
 		return errors.Wrapf(err, "creating ip tables")
 	}
@@ -199,11 +398,93 @@ func setupForwardRules(vethHostName, hostIface string) error {
 	if err != nil {
 		return errors.Wrapf(err, "adding iptable FORWARD rule")
 	}
-	return nil
+	return nil*/
 }
 
 func deleteForwardRules(vethHostName, hostIface string) error {
-	ipt, err := iptables.New()
+	conn := nftables.Conn{}
+	filterTable := &nftables.Table{
+		Name:   "filter",
+		Family: nftables.TableFamilyIPv4,
+	}
+
+	polAccept := nftables.ChainPolicyAccept
+	fwdCh := &nftables.Chain{
+		Name:     "FORWARD",
+		Table:    filterTable,
+		Type:     nftables.ChainTypeFilter,
+		Priority: 0,
+		Hooknum:  nftables.ChainHookForward,
+		Policy:   &polAccept,
+	}
+
+	outRule := &nftables.Rule{
+		Table: filterTable,
+		Chain: fwdCh,
+		Exprs: []expr.Any{
+			// Load iffname in register 1
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
+			},
+			// Load oif in register 1
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
+			},
+			&expr.Verdict{
+				Kind: expr.VerdictAccept,
+			},
+		},
+	}
+
+	inRule := &nftables.Rule{
+		Table: filterTable,
+		Chain: fwdCh,
+		Exprs: []expr.Any{
+			// Load oifname in register 1
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", vethHostName)),
+			},
+			// Load oif in register 1
+			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+			// Check iifname == veth1-0
+			&expr.Cmp{
+				Op:       expr.CmpOpEq,
+				Register: 1,
+				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
+			},
+			&expr.Verdict{
+				Kind: expr.VerdictAccept,
+			},
+		},
+	}
+
+	// Apply
+	if err := conn.DelRule(outRule); err != nil {
+		return errors.Wrapf(err, "deleting out forward rule")
+	}
+
+	if err := conn.DelRule(inRule); err != nil {
+		return errors.Wrapf(err, "deleting in forward rule")
+	}
+
+	if err := conn.Flush(); err != nil {
+		return errors.Wrapf(err, "deleting forward rules")
+	}
+	return nil
+
+	/*ipt, err := iptables.New()
 	if err != nil {
 		return errors.Wrapf(err, "creating ip tables")
 	}
@@ -217,7 +498,7 @@ func deleteForwardRules(vethHostName, hostIface string) error {
 	if err != nil {
 		return errors.Wrapf(err, "deleting iptable FORWARD rule")
 	}
-	return nil
+	return nil*/
 }
 
 func addRoute(destIp, gatewayIp string) error {

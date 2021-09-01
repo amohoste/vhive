@@ -162,7 +162,7 @@ func (mgr *NetworkManager) CreateNetwork(vmID string, netMetric *metrics.NetMetr
 
 	// A.4. Setup NAT rules
 	tStart = time.Now()
-	if err := setupNatRules(netCfg.getVeth0Name(), netCfg.getContainerIP(), netCfg.GetCloneIP()); err != nil {
+	if err := setupNatRules(netCfg.getVeth0Name(), netCfg.getContainerIP(), netCfg.GetCloneIP(), vmNsHandle); err != nil {
 		return err
 	}
 	netMetric.SetupNat = metrics.ToUS(time.Since(tStart))
@@ -246,7 +246,7 @@ func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
 	}
 
 	// Delete NAT rules
-	if err := deleteNatRules(netCfg.getVeth0Name(), netCfg.getContainerIP(), netCfg.GetCloneIP()); err != nil {
+	if err := deleteNatRules(netCfg.getVeth0Name(), netCfg.getContainerIP(), netCfg.GetCloneIP(), vmNsHandle); err != nil {
 		return err
 	}
 
