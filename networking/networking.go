@@ -336,7 +336,8 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 		},
 		Handle: inForwardHandle,
 	}
-
+	conn.AddTable(filterTable)
+	conn.AddChain(fwdCh)
 	conn.AddRule(outRule)
 	conn.AddRule(inRule)
 	if err := conn.Flush(); err != nil {
