@@ -302,7 +302,7 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 				Data:     []byte(fmt.Sprintf("%s\x00", hostIface)),
 			},
 			&expr.Verdict{
-				Kind: expr.VerdictDrop,
+				Kind: expr.VerdictAccept,
 			},
 		},
 		Handle: outForwardHandle,
@@ -336,7 +336,7 @@ func setupForwardRules(vethHostName, hostIface string, outForwardHandle, inForwa
 		},
 		Handle: inForwardHandle,
 	}
-	conn.AddTable(filterTable)
+	//conn.AddTable(filterTable)
 	conn.AddChain(fwdCh)
 	conn.AddRule(outRule)
 	conn.AddRule(inRule)
