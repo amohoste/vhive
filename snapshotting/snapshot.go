@@ -73,7 +73,7 @@ func (snp *Snapshot) GetSnapType() string {
 	if snp.sparse {
 		snapType = "Diff"
 	} else {
-		snapType = "All"
+		snapType = "Full"
 	}
 	return snapType
 }
