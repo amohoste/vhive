@@ -97,7 +97,7 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 // TODO: could check if want to add snapshot
 // TODO: also check if want to upload to remote storage once done
 // Check error to see if we should create snapshot
-func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32) (*Snapshot, error) {
+func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*Snapshot, error) {
 	mgr.Lock()
 
 	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
@@ -115,7 +115,7 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	}
 	mgr.usedMib += estimatedSnapSizeMib
 
-	snap := NewSnapshot(revision, mgr.baseFolder, image, estimatedSnapSizeMib, coldStartTimeMs, mgr.clock, memSizeMib, vCPUCount)
+	snap := NewSnapshot(revision, mgr.baseFolder, image, estimatedSnapSizeMib, coldStartTimeMs, mgr.clock, memSizeMib, vCPUCount, sparse)
 	mgr.snapshots[revision] = snap
 	mgr.Unlock()
 

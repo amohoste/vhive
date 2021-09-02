@@ -67,7 +67,7 @@ const (
 )
 
 // StartVM Boots a VM if it does not exist
-func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memSizeMib ,vCPUCount uint32, bootMetric *metrics.BootMetric, netMetric *metrics.NetMetric) (_ *StartVMResponse, retErr error) {
+func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memSizeMib ,vCPUCount uint32, trackDirtyPages bool, bootMetric *metrics.BootMetric, netMetric *metrics.NetMetric) (_ *StartVMResponse, retErr error) {
 	var (
 		tStart        time.Time
 	)
@@ -106,7 +106,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 
 	// 3. Create VM
 	tStart = time.Now()
-	conf := o.getVMConfig(vm)
+	conf := o.getVMConfig(vm, trackDirtyPages)
 	_, err = o.fcClient.CreateVM(ctx, conf)
 	bootMetric.FcCreateVM = metrics.ToUS(time.Since(tStart))
 	if err != nil {
@@ -347,7 +347,7 @@ func (o *Orchestrator) getImage(ctx context.Context, imageName string) (*contain
 	return &image, nil
 }
 
-func (o *Orchestrator) getVMConfig(vm *misc.VM) *proto.CreateVMRequest {
+func (o *Orchestrator) getVMConfig(vm *misc.VM, trackDirtyPages bool) *proto.CreateVMRequest {
 	kernelArgs := "ro noapic reboot=k panic=1 pci=off nomodules systemd.log_color=false systemd.unit=firecracker.target init=/sbin/overlay-init tsc=reliable quiet 8250.nr_uarts=0 ipv6.disable=1"
 
 	return &proto.CreateVMRequest{
@@ -357,6 +357,7 @@ func (o *Orchestrator) getVMConfig(vm *misc.VM) *proto.CreateVMRequest {
 		MachineCfg: &proto.FirecrackerMachineConfiguration{
 			VcpuCount:  vm.VCPUCount,
 			MemSizeMib: vm.MemSizeMib,
+			TrackDirtyPages: trackDirtyPages,
 		},
 		NetworkInterfaces: []*proto.FirecrackerNetworkInterface{{
 			StaticConfig: &proto.StaticNetworkConfiguration{
@@ -437,7 +438,7 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string, bootMetric *me
 }
 
 // CreateSnapshot Creates a snapshot of a VM
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, sparse bool, snapMetric *metrics.SnapMetric) error {
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric) error {
 	var (
 		tStart               time.Time
 	)
@@ -460,6 +461,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 		VMID:             vmID,
 		SnapshotFilePath: snap.GetSnapFilePath(),
 		MemFilePath:      snap.GetMemFilePath(),
+		SnapshotType:     snap.GetSnapType(),
 	}
 
 	tStart = time.Now()
@@ -485,17 +487,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	}
 	snapMetric.SerializeSnapInfo = metrics.ToUS(time.Since(tStart))
 
-	// 5. Make snapshot memory file sparse
-	if sparse {
-		tStart = time.Now()
-		if err = snap.SparsifyMemfile(); err != nil {
-			logger.WithError(err).Error("failed to make memfile sparse")
-			return err
-		}
-		snapMetric.SparsifyMemfile = metrics.ToUS(time.Since(tStart))
-	}
-
-	// 6. Resume
+	// 5. Resume
 	tStart = time.Now()
 	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
 		log.Printf("failed to resume the VM")

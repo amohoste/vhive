@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ricochet2200/go-disk-usage/du"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -18,6 +17,7 @@ type Snapshot struct {
 	MemSizeMib             uint32
 	VCPUCount              uint32
 	usable                 bool
+	sparse                 bool
 
 	// Eviction
 	numUsing               uint32
@@ -28,7 +28,7 @@ type Snapshot struct {
 	score                  int64
 }
 
-func NewSnapshot(revisionId, baseFolder, image string, sizeMiB, coldStartTimeMs, lastUsed int64, memSizeMib, vCPUCount uint32) *Snapshot {
+func NewSnapshot(revisionId, baseFolder, image string, sizeMiB, coldStartTimeMs, lastUsed int64, memSizeMib, vCPUCount uint32, sparse bool) *Snapshot {
 	s := &Snapshot{
 		revisionId:             revisionId,
 		snapDir:                filepath.Join(baseFolder, revisionId),
@@ -40,6 +40,7 @@ func NewSnapshot(revisionId, baseFolder, image string, sizeMiB, coldStartTimeMs,
 		TotalSizeMiB:           sizeMiB,
 		coldStartTimeMs:        coldStartTimeMs,
 		lastUsedClock:          lastUsed, // Initialize with used now to avoid immediately removing
+		sparse:                 sparse,
 	}
 
 	return s
@@ -65,6 +66,16 @@ func (snp *Snapshot) GetRevisionId() string {
 
 func (snp *Snapshot) GetSnapFilePath() string {
 	return filepath.Join(snp.snapDir, "snapfile")
+}
+
+func (snp *Snapshot) GetSnapType() string {
+	var snapType string
+	if snp.sparse {
+		snapType = "Diff"
+	} else {
+		snapType = "All"
+	}
+	return snapType
 }
 
 func (snp *Snapshot) GetMemFilePath() string {
@@ -110,13 +121,4 @@ func (snp *Snapshot) LoadSnapInfo(infoPath string) error {
 	}
 
 	return  nil
-}
-
-func (snp *Snapshot) SparsifyMemfile() error {
-	cmd := exec.Command("sudo", "fallocate", "--dig-holes", snp.GetMemFilePath())
-	err := cmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "digging holes in %s", snp.GetMemFilePath())
-	}
-	return nil
 }

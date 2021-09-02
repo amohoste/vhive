@@ -45,13 +45,12 @@ replace (
 replace (
 	github.com/containerd/containerd => github.com/amohoste/containerd v1.5.5-ids
 	github.com/ease-lab/vhive/examples/protobuf/helloworld => ./examples/protobuf/helloworld
-	github.com/firecracker-microvm/firecracker-containerd => github.com/amohoste/firecracker-containerd v1.0.0-ids
+	github.com/firecracker-microvm/firecracker-containerd => github.com/amohoste/firecracker-containerd v1.0.0-sparse
 )
 
 require (
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/containerd/containerd v1.5.2
-	github.com/coreos/go-iptables v0.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ease-lab/vhive/examples/protobuf/helloworld v0.0.0-00010101000000-000000000000
 	github.com/firecracker-microvm/firecracker-containerd v0.0.0-20210604232636-c2323bc71886

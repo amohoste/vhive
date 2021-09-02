@@ -172,7 +172,8 @@ func (c *Coordinator) orchStartVM(ctx context.Context, image, revision string, m
 	defer cancel()
 
 	if !c.withoutOrchestrator {
-		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, bootMetric, netMetric)
+		trackDirtyPages := c.isSparseSnaps
+		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, memSizeMib, vCPUCount, trackDirtyPages, bootMetric, netMetric)
 		if err != nil {
 			logger.WithError(err).Error("Coordinator failed to start VM")
 		}
@@ -252,7 +253,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		},
 	)
 
-	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount); err == nil {
+	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
 		// TODO: maybe needs to be longer
 		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 		defer cancel()
@@ -269,7 +270,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, c.isSparseSnaps, snapMetric)
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil

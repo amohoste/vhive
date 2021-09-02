@@ -70,7 +70,7 @@ func main() {
 
 	// Orch arguments
 	snapsCapacityMiB := flag.Int64("snapcapacity", 102400, "Capacity set aside for storing snapshots (Mib)")
-	isSparseSnaps := flag.Bool("sparsesnaps", false, "Makes memory files sparse after storing to reduce disk utilization")
+	isSparseSnaps := flag.Bool("sparsesnaps", true, "Makes memory files sparse after storing to reduce disk utilization")
 	isSnapshotsEnabled = flag.Bool("snapshots", false, "Use VM snapshots when adding function instances")
 	isMetricsMode = flag.Bool("metrics", false, "Calculate metrics")
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
