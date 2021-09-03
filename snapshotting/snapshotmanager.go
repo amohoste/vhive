@@ -2,9 +2,7 @@ package snapshotting
 
 import (
 	"container/heap"
-	"context"
 	"fmt"
-	"github.com/ease-lab/vhive/ctriface"
 	"github.com/pkg/errors"
 	"math"
 	"os"
@@ -21,7 +19,6 @@ type SnapshotManager struct {
 	snapshots          map[string]*Snapshot // maps revision revisionId to snapshot
 	freeSnaps          SnapHeap
 	baseFolder         string
-	orch               *ctriface.Orchestrator // This could be done cleaner
 
 	// Eviction
 	clock       int64 	// When container last used. Increased to priority terminated container on termination
@@ -29,9 +26,8 @@ type SnapshotManager struct {
 	usedMib     int64
 }
 
-func NewSnapshotManager(orch *ctriface.Orchestrator, baseFolder string, capacityMib int64) *SnapshotManager {
+func NewSnapshotManager(baseFolder string, capacityMib int64) *SnapshotManager {
 	manager := new(SnapshotManager)
-	manager.orch = orch
 	manager.snapshots = make(map[string]*Snapshot)
 	heap.Init(&manager.freeSnaps)
 	manager.baseFolder = baseFolder
@@ -101,20 +97,22 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 // TODO: could check if want to add snapshot
 // TODO: also check if want to upload to remote storage once done
 // Check error to see if we should create snapshot
-func (mgr *SnapshotManager) InitSnapshot(ctx context.Context, revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*Snapshot, error) {
+func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*[]string, *Snapshot, error) {
 	mgr.Lock()
 
+	var toDelete *[]string
 	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
 
 	if _, present := mgr.snapshots[revision]; present {
-		return nil, errors.New(fmt.Sprintf("Add: Snapshot for revision %s already exists", revision))
+		return nil, nil, errors.New(fmt.Sprintf("Add: Snapshot for revision %s already exists", revision))
 	}
 
 	availableMib := mgr.capacityMib - mgr.usedMib
 	if estimatedSnapSizeMib > availableMib {
-		if err := mgr.freeSpace(ctx, estimatedSnapSizeMib - availableMib); err != nil {
+		var err error
+		if toDelete, err = mgr.freeSpace(estimatedSnapSizeMib - availableMib); err != nil {
 			mgr.Unlock()
-			return nil, err
+			return toDelete, nil, err
 		}
 	}
 	mgr.usedMib += estimatedSnapSizeMib
@@ -125,10 +123,10 @@ func (mgr *SnapshotManager) InitSnapshot(ctx context.Context, revision, image st
 
 	err := os.Mkdir(snap.snapDir, 0755)
 	if err != nil {
-		return nil, errors.Wrapf(err, "creating snapDir for snapshots %s", revision)
+		return toDelete, nil, errors.Wrapf(err, "creating snapDir for snapshots %s", revision)
 	}
 
-	return snap, nil
+	return toDelete, snap, nil
 }
 
 func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
@@ -157,10 +155,11 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 
 // Make sure to have lock when calling!
 // TODO: might have to lock more efficiently so not locked when deleting folders
-func (mgr *SnapshotManager) freeSpace(ctx context.Context, neededMib int64) error {
+func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 	var toDelete []string
 	var freedMib int64 = 0
 
+	// Devmapper snap names to delete
 	for freedMib < neededMib && len(mgr.freeSnaps) > 0 {
 		snap :=  heap.Pop(&mgr.freeSnaps).(*Snapshot)
 		snap.usable = false
@@ -172,10 +171,7 @@ func (mgr *SnapshotManager) freeSpace(ctx context.Context, neededMib int64) erro
 	for _, revisionId := range toDelete {
 		snapDir := mgr.snapshots[revisionId].snapDir
 		if err := os.RemoveAll(snapDir); err != nil {
-			return errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
-		}
-		if err := mgr.orch.CleanupRevisionSnapshot(ctx, revisionId); err != nil {
-			return errors.Wrap(err, "removing devmapper revision snapshot")
+			return &toDelete, errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
 		}
 	}
 
@@ -191,10 +187,10 @@ func (mgr *SnapshotManager) freeSpace(ctx context.Context, neededMib int64) erro
 	mgr.usedMib -= freedMib
 
 	if freedMib < neededMib {
-		return errors.New("There is not enough free space available")
+		return nil, errors.New("There is not enough free space available")
 	}
 
-	return nil
+	return &toDelete, nil
 }
 
 
