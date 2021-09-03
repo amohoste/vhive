@@ -85,11 +85,11 @@ func (dmpr *DeviceMapper) CreateDeviceSnapshot(ctx context.Context, snapKey, par
 	return nil
 }
 
-func (dmpr *DeviceMapper) CommitDeviceSnapshot(ctx context.Context, snapKey string) error {
+func (dmpr *DeviceMapper) CommitDeviceSnapshot(ctx context.Context, snapName, snapKey string) error {
 	lease := dmpr.leases[snapKey]
 	leasedCtx := leases.WithLease(ctx, lease.ID)
 
-	if err := dmpr.snapshotService.Commit(leasedCtx, snapKey, snapKey); err != nil {
+	if err := dmpr.snapshotService.Commit(leasedCtx, snapName, snapKey); err != nil {
 		return err
 	}
 
@@ -186,7 +186,7 @@ func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 }
 
 // Creates a duplicate of a container snapshot that can be used as a base to boot new vms from
-func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, newContainerSnapKey string, image containerd.Image) error {
+func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, newContainerSnapName string, image containerd.Image) error {
 	oldContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, oldContainerSnapKey)
 	if err != nil {
 		return err
@@ -209,6 +209,7 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	}
 
 	// 3. Create the new container snapshot
+	newContainerSnapKey := newContainerSnapName + "active"
 	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, newContainerSnapKey, image); err != nil {
 		return errors.Wrapf(err, "creating forked container snapshot")
 	}
@@ -223,7 +224,7 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	}
 
 	// 5. Commit the new container snapshot
-	if err := dmpr.CommitDeviceSnapshot(ctx, newContainerSnapKey); err != nil {
+	if err := dmpr.CommitDeviceSnapshot(ctx, newContainerSnapName, newContainerSnapKey); err != nil {
 		return errors.Wrapf(err, "committing container snapshot")
 	}
 
