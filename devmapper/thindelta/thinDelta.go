@@ -62,7 +62,7 @@ func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string) (*b
 	cmd := exec.Command("sudo", "thin_delta", "-m", thd.metaDataDev, "--snap1", snap1DeviceId, "--snap2", snap2DeviceId)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stdout = &stderr
+	cmd.Stderr = &stderr
 
 	err = cmd.Run()
 	if err != nil {
