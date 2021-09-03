@@ -480,7 +480,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID, revisionID stri
 	snapMetric.CreatePatch = metrics.ToUS(time.Since(tStart))*/
 	tStart = time.Now()
 	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName(), *vm.Image); err != nil {
-		logger.WithError(err).Error("failed to create container patch file")
+		logger.WithError(err).Error("failed to fork container snap")
 		return err
 	}
 	snapMetric.ForkContainerSnap = metrics.ToUS(time.Since(tStart))

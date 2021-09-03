@@ -224,7 +224,7 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 
 	// 5. Commit the new container snapshot
 	if err := dmpr.CommitDeviceSnapshot(ctx, newContainerSnapKey); err != nil {
-		return err
+		return errors.Wrapf(err, "committing container snapshot")
 	}
 
 	return nil
