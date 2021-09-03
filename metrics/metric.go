@@ -90,7 +90,9 @@ type SnapMetric struct {
 	// FcCreateSnapshot Time it takes to create the snapshot in firecracker
 	FcCreateSnapshot  float64
 	// CreatePatch Time to create a patch for the container snapshot
-	CreatePatch       float64
+	CreatePatch       float64 // TODO: old. Only for remote
+	// ForkContainerSnap Time to create a copy of the container snapshot
+	ForkContainerSnap float64
 	// SerializeSnapInfo Time to serialize the snapshot info
 	SerializeSnapInfo float64
 	// SerializeSnapInfo Time to make the memfile sparse

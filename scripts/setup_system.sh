@@ -51,6 +51,7 @@ sudo apt-get -y install \
     iproute2 \
     pigz \
     nftables \
+    thin-provisioning-tools \
     skopeo >> /dev/null
 
 

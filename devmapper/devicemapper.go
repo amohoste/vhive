@@ -6,6 +6,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/snapshots"
+	"github.com/ease-lab/vhive/devmapper/thindelta"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/pkg/errors"
 	"os"
@@ -20,6 +21,7 @@ type DeviceMapper struct {
 	poolName           string
 	snapDevices        map[string]*DeviceSnapshot // maps revision snapkey to snapshot device
 	snapshotService    snapshots.Snapshotter
+	thinDelta          *thindelta.ThinDelta
 
 	// Need to create leases to avoid garbage collecting snapshots manually created through containerd.
 	// Done already if using normal containerd functions (eg. container.create)
@@ -27,9 +29,10 @@ type DeviceMapper struct {
 	leases            map[string]*leases.Lease
 }
 
-func NewDeviceMapper(client *containerd.Client, poolName string) *DeviceMapper {
+func NewDeviceMapper(client *containerd.Client, poolName, metadataDev string) *DeviceMapper {
 	devMapper := new(DeviceMapper)
 	devMapper.poolName = poolName
+	devMapper.thinDelta = thindelta.NewThinDelta(poolName, metadataDev)
 	devMapper.snapDevices = make(map[string]*DeviceSnapshot)
 	devMapper.snapshotService = client.SnapshotService("devmapper")
 	devMapper.leaseManager = client.LeasesService()
@@ -78,6 +81,20 @@ func (dmpr *DeviceMapper) CreateDeviceSnapshot(ctx context.Context, snapKey, par
 	dsnp.numActivated = 1
 	dmpr.snapDevices[snapKey] = dsnp
 	dmpr.leases[snapKey] = &lease
+	dmpr.Unlock()
+	return nil
+}
+
+func (dmpr *DeviceMapper) CommitDeviceSnapshot(ctx context.Context, snapKey string) error {
+	lease := dmpr.leases[snapKey]
+	leasedCtx := leases.WithLease(ctx, lease.ID)
+
+	if err := dmpr.snapshotService.Commit(leasedCtx, snapKey, snapKey); err != nil {
+		return err
+	}
+
+	dmpr.Lock()
+	dmpr.snapDevices[snapKey].numActivated = 0
 	dmpr.Unlock()
 	return nil
 }
@@ -168,6 +185,53 @@ func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 	return nil
 }
 
+// Creates a duplicate of a container snapshot that can be used as a base to boot new vms from
+func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, revisionId string, image containerd.Image) error {
+	oldContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, oldContainerSnapKey)
+	if err != nil {
+		return err
+	}
+
+	imageSnap, err := dmpr.GetImageSnapshot(ctx, image)
+	if err != nil {
+		return err
+	}
+
+	// 1. Get block difference of the old container snapshot from thinpool metadata
+	blockDelta, err := dmpr.thinDelta.GetBlocksDelta(imageSnap.deviceId, oldContainerSnap.deviceId)
+	if err != nil {
+		return errors.Wrapf(err, "getting block delta")
+	}
+
+	// 2. Read the calculated block difference from the old container snapshot
+	if err := blockDelta.ReadBlocks(oldContainerSnap.GetDevicePath()); err != nil {
+		return errors.Wrapf(err, "reading block delta")
+	}
+
+	// 3. Create the new container snapshot
+	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, revisionId, image); err != nil {
+		return errors.Wrapf(err, "creating forked container snapshot")
+	}
+	newContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, revisionId)
+	if err != nil {
+		return errors.Wrapf(err, "previously created forked container device does not exist")
+	}
+
+	// 4. Write calculated block difference to new container snapshot
+	if err := blockDelta.WriteBlocks(newContainerSnap.GetDevicePath()); err != nil {
+		return errors.Wrapf(err, "writing block delta")
+	}
+
+	// 5. Commit the new container snapshot
+	if err := dmpr.CommitDeviceSnapshot(ctx, revisionId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+// TODO: only do when creating patch file for remote snapshot
 // CreatePatch creates a patch file storing the difference between an image and the container filesystem
 func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerSnapKey string, image containerd.Image) error {
 	containerSnap, err := dmpr.GetDeviceSnapshot(ctx, containerSnapKey)
@@ -214,6 +278,7 @@ func applyPatch(containerMountPath, patchPath string) error {
 	return nil
 }
 
+// TODO: only do when applying patch file to container snapshot when restoring first remote snapshot
 // Apply changes on top of container layer
 func (dmpr *DeviceMapper) RestorePatch(ctx context.Context, containerSnapKey, patchPath string) error {
 	containerSnap, err := dmpr.GetDeviceSnapshot(ctx, containerSnapKey)

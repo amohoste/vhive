@@ -42,6 +42,8 @@ github.com/amohoste/containerd v1.5.5-ids/go.mod h1:oSTh0QpT1w6jYcGmbiSbxv9OSQYa
 github.com/amohoste/firecracker-containerd v1.0.0-sparse h1:cGDp1kcB5gBxtWdgW1VYw8nroSYq751at07q5L2OBZY=
 github.com/amohoste/firecracker-containerd v1.0.0-sparse/go.mod h1:+/08aD580irjp7X1+gyIIgRf4IbsxhgFhDQ15m+SFyY=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883/go.mod h1:rCTlJbsFo29Kk6CurOXKm700vrz8f0KW0JNfpkRJY/8=
+github.com/antchfx/xpath v1.2.0 h1:mbwv7co+x0RwgeGAOHdrKy89GvHaGvxxBtPK0uF9Zr8=
+github.com/antchfx/xpath v1.2.0/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwqzXNcs=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
@@ -531,6 +533,10 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
+github.com/tamerh/xml-stream-parser v1.4.0 h1:Vb1ZqshlXi53vvUBzZUdEsEJBvnKVWhfrGEJhfQABfc=
+github.com/tamerh/xml-stream-parser v1.4.0/go.mod h1:lrpNpthn/iYpnyICCe4KwJSANxywFIfSvsqokQOV9q0=
+github.com/tamerh/xpath v1.0.0 h1:NccMES/Ej8slPCFDff73Kf6V1xu9hdbuKf2RyDsxf5Q=
+github.com/tamerh/xpath v1.0.0/go.mod h1:t0wnh72FQlOVEO20f2Dl3EoVxso9GnLREh1WTpvNmJQ=
 github.com/tchap/go-patricia v2.2.6+incompatible/go.mod h1:bmLyhP68RS6kStMGxByiQ23RP/odRBOTVjwp2cDyi6I=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=

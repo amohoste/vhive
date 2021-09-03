@@ -64,7 +64,7 @@ func newCoordinator(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSpars
 	c := &Coordinator{
 		activeInstances: make(map[string]*FuncInstance),
 		orch:            orch,
-		snapshotManager: snapshotting.NewSnapshotManager(snapshotsDir, snapsCapacityMiB),
+		snapshotManager: snapshotting.NewSnapshotManager(orch, snapshotsDir, snapsCapacityMiB),
 		isSparseSnaps:   isSparseSnaps,
 		metricsManager: metrics.NewMetricsManager("/fccd/metrics"),
 		isMetricMode: isMetricsMode,
@@ -253,7 +253,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		},
 	)
 
-	if snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
+	if snap, err := c.snapshotManager.InitSnapshot(ctx, fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
 		// TODO: maybe needs to be longer
 		ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 		defer cancel()
@@ -270,7 +270,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric)
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, fi.revisionId, snap, snapMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil

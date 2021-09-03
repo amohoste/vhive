@@ -76,6 +76,8 @@ func main() {
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 	isCliMode = flag.Bool("climode", false, "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
+	poolName := flag.String("poolname", "fc-dev-thinpool", "Device mapper thinpool name")
+	metadataDev := flag.String("metadev", "/dev/loop1", "Device used by devicemapper for metadata storage")
 
 	// Parse cmd line arguments
 	flag.Parse()
@@ -113,7 +115,7 @@ func main() {
 
 	// Run vHive components
 	orch = ctriface.NewOrchestrator(
-		*hostIface,
+		*hostIface, *poolName, *metadataDev,
 		ctriface.WithTestModeOn(testModeOn),
 		ctriface.WithSnapshots(*isSnapshotsEnabled),
 		ctriface.WithMetricsMode(*isMetricsMode),

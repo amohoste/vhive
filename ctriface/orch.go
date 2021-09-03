@@ -74,7 +74,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator Initializes a new orchestrator
-func NewOrchestrator(hostIface string, opts ...OrchestratorOption) *Orchestrator {
+func NewOrchestrator(hostIface, poolName, metadataDev string, opts ...OrchestratorOption) *Orchestrator {
 	var err error
 
 	o := new(Orchestrator)
@@ -111,7 +111,7 @@ func NewOrchestrator(hostIface string, opts ...OrchestratorOption) *Orchestrator
 		log.Fatal("Failed to start firecracker client", err)
 	}
 	log.Info("Created firecracker client")
-	o.devMapper = devmapper.NewDeviceMapper(o.client, "fc-dev-thinpool")
+	o.devMapper = devmapper.NewDeviceMapper(o.client, poolName, metadataDev)
 	return o
 }
 

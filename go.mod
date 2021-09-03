@@ -49,6 +49,7 @@ replace (
 )
 
 require (
+	github.com/antchfx/xpath v1.2.0 // indirect
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/containerd/containerd v1.5.2
 	github.com/davecgh/go-spew v1.1.1
@@ -64,6 +65,8 @@ require (
 	github.com/ricochet2200/go-disk-usage/du v0.0.0-20210707232629-ac9918953285
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/tamerh/xml-stream-parser v1.4.0
+	github.com/tamerh/xpath v1.0.0 // indirect
 	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 	go.opencensus.io v0.22.4 // indirect

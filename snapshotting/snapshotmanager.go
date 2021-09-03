@@ -2,7 +2,9 @@ package snapshotting
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
+	"github.com/ease-lab/vhive/ctriface"
 	"github.com/pkg/errors"
 	"math"
 	"os"
@@ -19,6 +21,7 @@ type SnapshotManager struct {
 	snapshots          map[string]*Snapshot // maps revision revisionId to snapshot
 	freeSnaps          SnapHeap
 	baseFolder         string
+	orch               *ctriface.Orchestrator // This could be done cleaner
 
 	// Eviction
 	clock       int64 	// When container last used. Increased to priority terminated container on termination
@@ -26,8 +29,9 @@ type SnapshotManager struct {
 	usedMib     int64
 }
 
-func NewSnapshotManager(baseFolder string, capacityMib int64) *SnapshotManager {
+func NewSnapshotManager(orch *ctriface.Orchestrator, baseFolder string, capacityMib int64) *SnapshotManager {
 	manager := new(SnapshotManager)
+	manager.orch = orch
 	manager.snapshots = make(map[string]*Snapshot)
 	heap.Init(&manager.freeSnaps)
 	manager.baseFolder = baseFolder
@@ -97,7 +101,7 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 // TODO: could check if want to add snapshot
 // TODO: also check if want to upload to remote storage once done
 // Check error to see if we should create snapshot
-func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*Snapshot, error) {
+func (mgr *SnapshotManager) InitSnapshot(ctx context.Context, revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*Snapshot, error) {
 	mgr.Lock()
 
 	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
@@ -108,7 +112,7 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 
 	availableMib := mgr.capacityMib - mgr.usedMib
 	if estimatedSnapSizeMib > availableMib {
-		if err := mgr.freeSpace(estimatedSnapSizeMib - availableMib); err != nil {
+		if err := mgr.freeSpace(ctx, estimatedSnapSizeMib - availableMib); err != nil {
 			mgr.Unlock()
 			return nil, err
 		}
@@ -153,7 +157,7 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 
 // Make sure to have lock when calling!
 // TODO: might have to lock more efficiently so not locked when deleting folders
-func (mgr *SnapshotManager) freeSpace(neededMib int64) error {
+func (mgr *SnapshotManager) freeSpace(ctx context.Context, neededMib int64) error {
 	var toDelete []string
 	var freedMib int64 = 0
 
@@ -169,6 +173,9 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) error {
 		snapDir := mgr.snapshots[revisionId].snapDir
 		if err := os.RemoveAll(snapDir); err != nil {
 			return errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
+		}
+		if err := mgr.orch.CleanupRevisionSnapshot(ctx, revisionId); err != nil {
+			return errors.Wrap(err, "removing devmapper revision snapshot")
 		}
 	}
 
