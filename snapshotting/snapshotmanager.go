@@ -100,7 +100,7 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*[]string, *Snapshot, error) {
 	mgr.Lock()
 
-	var toDelete *[]string
+	var removeContainerSnaps *[]string
 	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
 
 	if _, present := mgr.snapshots[revision]; present {
@@ -110,9 +110,9 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	availableMib := mgr.capacityMib - mgr.usedMib
 	if estimatedSnapSizeMib > availableMib {
 		var err error
-		if toDelete, err = mgr.freeSpace(estimatedSnapSizeMib - availableMib); err != nil {
+		if removeContainerSnaps, err = mgr.freeSpace(estimatedSnapSizeMib - availableMib); err != nil {
 			mgr.Unlock()
-			return toDelete, nil, err
+			return removeContainerSnaps, nil, err
 		}
 	}
 	mgr.usedMib += estimatedSnapSizeMib
@@ -123,10 +123,10 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 
 	err := os.Mkdir(snap.snapDir, 0755)
 	if err != nil {
-		return toDelete, nil, errors.Wrapf(err, "creating snapDir for snapshots %s", revision)
+		return removeContainerSnaps, nil, errors.Wrapf(err, "creating snapDir for snapshots %s", revision)
 	}
 
-	return toDelete, snap, nil
+	return removeContainerSnaps, snap, nil
 }
 
 func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
@@ -158,12 +158,14 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 	var toDelete []string
 	var freedMib int64 = 0
+	var removeContainerSnaps []string
 
 	// Devmapper snap names to delete
 	for freedMib < neededMib && len(mgr.freeSnaps) > 0 {
 		snap :=  heap.Pop(&mgr.freeSnaps).(*Snapshot)
 		snap.usable = false
 		toDelete = append(toDelete, snap.revisionId)
+		removeContainerSnaps = append(removeContainerSnaps, snap.containerSnapName)
 		freedMib += snap.TotalSizeMiB
 	}
 
@@ -171,7 +173,7 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 	for _, revisionId := range toDelete {
 		snapDir := mgr.snapshots[revisionId].snapDir
 		if err := os.RemoveAll(snapDir); err != nil {
-			return &toDelete, errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
+			return &removeContainerSnaps, errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
 		}
 	}
 
@@ -190,7 +192,7 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 		return nil, errors.New("There is not enough free space available")
 	}
 
-	return &toDelete, nil
+	return &removeContainerSnaps, nil
 }
 
 

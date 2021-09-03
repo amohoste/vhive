@@ -253,10 +253,10 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		},
 	)
 
-	if toDelete, snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
+	if removeContainerSnaps, snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
 		// Not very clean
-		if toDelete != nil {
-			for _, cleanupSnapId := range *toDelete {
+		if removeContainerSnaps != nil {
+			for _, cleanupSnapId := range *removeContainerSnaps {
 				if err := c.orch.CleanupRevisionSnapshot(ctx, cleanupSnapId); err != nil {
 					return errors.Wrap(err, "removing devmapper revision snapshot")
 				}

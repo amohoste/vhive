@@ -186,7 +186,7 @@ func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 }
 
 // Creates a duplicate of a container snapshot that can be used as a base to boot new vms from
-func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, revisionId string, image containerd.Image) error {
+func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, newContainerSnapKey string, image containerd.Image) error {
 	oldContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, oldContainerSnapKey)
 	if err != nil {
 		return err
@@ -209,10 +209,10 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	}
 
 	// 3. Create the new container snapshot
-	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, revisionId, image); err != nil {
+	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, newContainerSnapKey, image); err != nil {
 		return errors.Wrapf(err, "creating forked container snapshot")
 	}
-	newContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, revisionId)
+	newContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, newContainerSnapKey)
 	if err != nil {
 		return errors.Wrapf(err, "previously created forked container device does not exist")
 	}
@@ -223,7 +223,7 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	}
 
 	// 5. Commit the new container snapshot
-	if err := dmpr.CommitDeviceSnapshot(ctx, revisionId); err != nil {
+	if err := dmpr.CommitDeviceSnapshot(ctx, newContainerSnapKey); err != nil {
 		return err
 	}
 

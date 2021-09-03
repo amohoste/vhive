@@ -479,7 +479,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID, revisionID stri
 	}
 	snapMetric.CreatePatch = metrics.ToUS(time.Since(tStart))*/
 	tStart = time.Now()
-	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, revisionID, *vm.Image); err != nil {
+	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName(), *vm.Image); err != nil {
 		logger.WithError(err).Error("failed to create container patch file")
 		return err
 	}
@@ -543,7 +543,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 
 	// 3. Create snapshot for container to run
 	tStart = time.Now()
-	if err := o.devMapper.CreateDeviceSnapshot(ctx, vm.ContainerSnapKey, snap.GetRevisionId()); err != nil {
+	if err := o.devMapper.CreateDeviceSnapshot(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName()); err != nil {
 		return nil, errors.Wrapf(err, "creating container snapshot")
 	}
 

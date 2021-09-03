@@ -2,16 +2,19 @@ package snapshotting
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/ricochet2200/go-disk-usage/du"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Snapshot identified by revision
 // Only capitalized fields are serialised / deserialised
 type Snapshot struct {
 	revisionId             string
+	containerSnapName      string
 	snapDir                string
 	Image                  string
 	MemSizeMib             uint32
@@ -32,6 +35,7 @@ func NewSnapshot(revisionId, baseFolder, image string, sizeMiB, coldStartTimeMs,
 	s := &Snapshot{
 		revisionId:             revisionId,
 		snapDir:                filepath.Join(baseFolder, revisionId),
+		containerSnapName:      fmt.Sprintf("%s%s", revisionId, time.Now().Format("20060102150405")),
 		Image:                  image,
 		MemSizeMib:             memSizeMib,
 		VCPUCount:              vCPUCount,
@@ -52,6 +56,7 @@ func (snp *Snapshot) UpdateDiskSize() {
 	snp.TotalSizeMiB = int64(usage.Used() / (1024 * 1024))
 }
 
+
 func (snp *Snapshot) UpdateScore() {
 	snp.score = snp.lastUsedClock + (snp.freq * snp.coldStartTimeMs) / snp.TotalSizeMiB
 }
@@ -62,6 +67,10 @@ func (snp *Snapshot) GetImage() string {
 
 func (snp *Snapshot) GetRevisionId() string {
 	return snp.revisionId
+}
+
+func (snp *Snapshot) GetContainerSnapName() string {
+	return snp.containerSnapName
 }
 
 func (snp *Snapshot) GetSnapFilePath() string {
