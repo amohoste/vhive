@@ -188,7 +188,12 @@ type ForkMetric struct {
 
 	GetOldDeviceSnap   float64
 	GetImageSnap       float64
-	GetBlocksDelta     float64
+
+	ReserveMetaSnap    float64
+	ThinDelta          float64
+	ReleaseMetaSnap    float64
+	ParseBlocksDelta   float64
+
 	ReadBlocks         float64
 	CreateDeviceSnap   float64
 	WriteBlocks        float64

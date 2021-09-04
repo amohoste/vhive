@@ -208,12 +208,10 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	forkMetric.GetImageSnap = metrics.ToUS(time.Since(tStart))
 
 	// 1. Get block difference of the old container snapshot from thinpool metadata
-	tStart = time.Now()
-	blockDelta, err := dmpr.thinDelta.GetBlocksDelta(imageSnap.deviceId, oldContainerSnap.deviceId)
+	blockDelta, err := dmpr.thinDelta.GetBlocksDelta(imageSnap.deviceId, oldContainerSnap.deviceId, forkMetric)
 	if err != nil {
 		return errors.Wrapf(err, "getting block delta")
 	}
-	forkMetric.GetBlocksDelta = metrics.ToUS(time.Since(tStart))
 
 	// 2. Read the calculated block difference from the old container snapshot
 	tStart = time.Now()

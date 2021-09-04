@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/ease-lab/vhive/metrics"
 	"github.com/pkg/errors"
 	xmlparser "github.com/tamerh/xml-stream-parser"
 	"os/exec"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const (
@@ -51,14 +53,26 @@ func (thd *ThinDelta) releaseMetadataSnap() error {
 	return err
 }
 
-func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string) (*bytes.Buffer, error) {
+func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string, forkMetric *metrics.ForkMetric) (*bytes.Buffer, error) {
+	var (
+		tStart               time.Time
+	)
+
 	// Reserve metadata snapshot
+	tStart = time.Now()
 	err := thd.reserveMetadataSnap()
+	forkMetric.ReserveMetaSnap = metrics.ToUS(time.Since(tStart))
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to reserve metadata snapshot")
 	}
-	defer thd.releaseMetadataSnap()
+	defer func() {
+		tStart = time.Now()
+		thd.releaseMetadataSnap()
+		forkMetric.ReleaseMetaSnap = metrics.ToUS(time.Since(tStart))
+	}()
 
+	tStart = time.Now()
 	cmd := exec.Command("sudo", "thin_delta", "-m", thd.metaDataDev, "--snap1", snap1DeviceId, "--snap2", snap2DeviceId)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -68,16 +82,18 @@ func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string) (*b
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting snapshot delta: %s", stderr.String())
 	}
+	forkMetric.ThinDelta = metrics.ToUS(time.Since(tStart))
 	return &stdout, nil
 }
 
 
-func (thd *ThinDelta) GetBlocksDelta(snap1DeviceId, snap2DeviceId string) (*BlockDelta, error) {
-	stdout, err := thd.getBlocksRawDelta(snap1DeviceId, snap2DeviceId)
+func (thd *ThinDelta) GetBlocksDelta(snap1DeviceId, snap2DeviceId string, forkMetric *metrics.ForkMetric) (*BlockDelta, error) {
+	stdout, err := thd.getBlocksRawDelta(snap1DeviceId, snap2DeviceId, forkMetric)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting block delta")
 	}
 
+	tStart := time.Now()
 	diffBlocks := make([]DiffBlock, 0)
 
 	br := bufio.NewReaderSize(stdout,65536)
@@ -96,6 +112,8 @@ func (thd *ThinDelta) GetBlocksDelta(snap1DeviceId, snap2DeviceId string) (*Bloc
 
 		diffBlocks = append(diffBlocks, DiffBlock{Begin: begin, Length: length, Delete: xml.Name == "left_only"})
 	}
+
+	forkMetric.ParseBlocksDelta = metrics.ToUS(time.Since(tStart))
 
 	return NewBlockDelta(&diffBlocks, blockSizeBytes), nil
 }
