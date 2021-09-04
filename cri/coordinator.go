@@ -279,7 +279,8 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric)
+		forkMetric := metrics.NewForkMetric(fi.revisionId)
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric, forkMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
@@ -293,6 +294,9 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		if c.isMetricMode {
 			snapMetric.Failed = false
 			go c.metricsManager.AddSnapMetric(snapMetric)
+
+			forkMetric.Failed = false
+			go c.metricsManager.AddForkMetric(forkMetric)
 		}
 	} else {
 		fi.logger.Warn("Not enough space for snapshot")

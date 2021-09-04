@@ -180,3 +180,46 @@ func (metric *NetMetric) GetValueLine() []string {
 	}
 	return values
 }
+
+// If value is 0: not exist. Make sure all fields capitalized. Fields added to csv in order in struct
+type ForkMetric struct {
+	RevisionId        string
+	Failed          bool
+
+	GetOldDeviceSnap   float64
+	GetImageSnap       float64
+	GetBlocksDelta     float64
+	ReadBlocks         float64
+	CreateDeviceSnap   float64
+	WriteBlocks        float64
+	CommitSnap         float64
+}
+
+func NewForkMetric(revisionId string) *ForkMetric {
+	s := new(ForkMetric)
+	s.RevisionId = revisionId
+	s.Failed = true
+	return s
+}
+
+func GetForkHeaderLine() []string {
+	metric := NewForkMetric("")
+	v := reflect.ValueOf(*metric)
+	typeOfS := v.Type()
+	keys := make([]string, v.NumField())
+
+	for i := 0; i< v.NumField(); i++ {
+		keys[i] = fmt.Sprintf("%s", typeOfS.Field(i).Name)
+	}
+	return keys
+}
+
+func (metric *ForkMetric) GetValueLine() []string {
+	v := reflect.ValueOf(*metric)
+	values:= make([]string, v.NumField())
+
+	for i := 0; i< v.NumField(); i++ {
+		values[i] = fmt.Sprintf("%v", v.Field(i).Interface())
+	}
+	return values
+}

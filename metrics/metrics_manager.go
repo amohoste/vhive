@@ -21,6 +21,10 @@ type MetricsManager struct {
 	netMutex   sync.Mutex
 	netFile    *os.File
 	netWriter  *csv.Writer
+
+	forkMutex   sync.Mutex
+	forkFile    *os.File
+	forkWriter  *csv.Writer
 }
 
 func NewMetricsManager(metricsDirectory string) *MetricsManager {
@@ -30,16 +34,19 @@ func NewMetricsManager(metricsDirectory string) *MetricsManager {
 	bootFileName := fmt.Sprintf("bootmetrics%s", metricsIdentifier)
 	createSnapFileName := fmt.Sprintf("createsnapmetrics%s", metricsIdentifier)
 	netFileName := fmt.Sprintf("netmetrics%s", metricsIdentifier)
+	forkFileName := fmt.Sprintf("forkmetrics%s", metricsIdentifier)
 
 	// Create files
 	mgr.bootFile, _ = os.Create(filepath.Join(metricsDirectory, bootFileName))
 	mgr.createSnapFile, _ = os.Create(filepath.Join(metricsDirectory, createSnapFileName))
 	mgr.netFile, _ = os.Create(filepath.Join(metricsDirectory, netFileName))
+	mgr.forkFile, _ = os.Create(filepath.Join(metricsDirectory, forkFileName))
 
 	// Create CSV writers
 	mgr.bootWriter = csv.NewWriter(mgr.bootFile)
 	mgr.createSnapWriter = csv.NewWriter(mgr.createSnapFile)
 	mgr.netWriter = csv.NewWriter(mgr.netFile)
+	mgr.forkWriter = csv.NewWriter(mgr.forkFile)
 
 	// Write headers
 	mgr.bootWriter.Write(GetBootHeaderLine())
@@ -50,6 +57,9 @@ func NewMetricsManager(metricsDirectory string) *MetricsManager {
 
 	mgr.netWriter.Write(GetNetHeaderLine())
 	mgr.netWriter.Flush()
+
+	mgr.forkWriter.Write(GetForkHeaderLine())
+	mgr.forkWriter.Flush()
 
 	return mgr
 }
@@ -88,5 +98,15 @@ func (mgr *MetricsManager) AddNetMetric(metric *NetMetric) error {
 		return err
 	}
 	mgr.netWriter.Flush()
+	return nil
+}
+
+func (mgr *MetricsManager) AddForkMetric(metric *ForkMetric) error {
+	mgr.forkMutex.Lock()
+	defer mgr.forkMutex.Unlock()
+	if err := mgr.forkWriter.Write(metric.GetValueLine()); err != nil {
+		return err
+	}
+	mgr.forkWriter.Flush()
 	return nil
 }

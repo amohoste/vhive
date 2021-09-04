@@ -438,7 +438,7 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string, bootMetric *me
 }
 
 // CreateSnapshot Creates a snapshot of a VM
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric) error {
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric, forkMetric *metrics.ForkMetric) error {
 	var (
 		tStart               time.Time
 	)
@@ -479,7 +479,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	}
 	snapMetric.CreatePatch = metrics.ToUS(time.Since(tStart))*/
 	tStart = time.Now()
-	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName(), *vm.Image); err != nil {
+	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName(), *vm.Image, forkMetric); err != nil {
 		logger.WithError(err).Error("failed to fork container snap")
 		return err
 	}

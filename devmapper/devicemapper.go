@@ -7,6 +7,7 @@ import (
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/ease-lab/vhive/devmapper/thindelta"
+	"github.com/ease-lab/vhive/metrics"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/pkg/errors"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type DeviceMapper struct {
@@ -186,29 +188,42 @@ func extractPatch(imageMountPath, containerMountPath, patchPath string) error {
 }
 
 // Creates a duplicate of a container snapshot that can be used as a base to boot new vms from
-func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, newContainerSnapName string, image containerd.Image) error {
+func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSnapKey, newContainerSnapName string, image containerd.Image, forkMetric *metrics.ForkMetric) error {
+	var (
+		tStart               time.Time
+	)
+
+	tStart = time.Now()
 	oldContainerSnap, err := dmpr.GetDeviceSnapshot(ctx, oldContainerSnapKey)
 	if err != nil {
 		return err
 	}
+	forkMetric.GetOldDeviceSnap = metrics.ToUS(time.Since(tStart))
 
+	tStart = time.Now()
 	imageSnap, err := dmpr.GetImageSnapshot(ctx, image)
 	if err != nil {
 		return err
 	}
+	forkMetric.GetImageSnap = metrics.ToUS(time.Since(tStart))
 
 	// 1. Get block difference of the old container snapshot from thinpool metadata
+	tStart = time.Now()
 	blockDelta, err := dmpr.thinDelta.GetBlocksDelta(imageSnap.deviceId, oldContainerSnap.deviceId)
 	if err != nil {
 		return errors.Wrapf(err, "getting block delta")
 	}
+	forkMetric.GetBlocksDelta = metrics.ToUS(time.Since(tStart))
 
 	// 2. Read the calculated block difference from the old container snapshot
+	tStart = time.Now()
 	if err := blockDelta.ReadBlocks(oldContainerSnap.GetDevicePath()); err != nil {
 		return errors.Wrapf(err, "reading block delta")
 	}
+	forkMetric.ReadBlocks = metrics.ToUS(time.Since(tStart))
 
 	// 3. Create the new container snapshot
+	tStart = time.Now()
 	newContainerSnapKey := newContainerSnapName + "active"
 	if err := dmpr.CreateDeviceSnapshotFromImage(ctx, newContainerSnapKey, image); err != nil {
 		return errors.Wrapf(err, "creating forked container snapshot")
@@ -217,16 +232,21 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 	if err != nil {
 		return errors.Wrapf(err, "previously created forked container device does not exist")
 	}
+	forkMetric.CreateDeviceSnap = metrics.ToUS(time.Since(tStart))
 
 	// 4. Write calculated block difference to new container snapshot
+	tStart = time.Now()
 	if err := blockDelta.WriteBlocks(newContainerSnap.GetDevicePath()); err != nil {
 		return errors.Wrapf(err, "writing block delta")
 	}
+	forkMetric.WriteBlocks = metrics.ToUS(time.Since(tStart))
 
 	// 5. Commit the new container snapshot
+	tStart = time.Now()
 	if err := dmpr.CommitDeviceSnapshot(ctx, newContainerSnapName, newContainerSnapKey); err != nil {
 		return errors.Wrapf(err, "committing container snapshot")
 	}
+	forkMetric.CommitSnap = metrics.ToUS(time.Since(tStart))
 
 	return nil
 }
