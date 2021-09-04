@@ -438,7 +438,7 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string, bootMetric *me
 }
 
 // CreateSnapshot Creates a snapshot of a VM
-func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID, revisionID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric) error {
+func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric) error {
 	var (
 		tStart               time.Time
 	)

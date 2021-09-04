@@ -279,7 +279,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, fi.revisionId, snap, snapMetric)
+		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric)
 		if err != nil {
 			fi.logger.WithError(err).Error("failed to create snapshot")
 			return nil
