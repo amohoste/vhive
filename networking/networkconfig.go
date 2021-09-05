@@ -176,6 +176,7 @@ func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
 			return err
 		}
 		netMetric.SetForward = metrics.ToUS(time.Since(tStart))
+		cfg.initialized = true
 	}
 
 	return nil
