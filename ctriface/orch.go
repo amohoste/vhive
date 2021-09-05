@@ -74,11 +74,11 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator Initializes a new orchestrator
-func NewOrchestrator(hostIface, poolName, metadataDev string, opts ...OrchestratorOption) *Orchestrator {
+func NewOrchestrator(hostIface, poolName, metadataDev string, netPoolSize int, opts ...OrchestratorOption) *Orchestrator {
 	var err error
 
 	o := new(Orchestrator)
-	o.vmPool = misc.NewVMPool(hostIface)
+	o.vmPool = misc.NewVMPool(hostIface, netPoolSize)
 	o.cachedImages = make(map[string]containerd.Image)
 	o.snapshotter = "devmapper"
 	o.snapshotsDir = "/fccd/snapshots"

@@ -78,6 +78,7 @@ func main() {
 	isCliMode = flag.Bool("climode", false, "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 	poolName := flag.String("poolname", "fc-dev-thinpool", "Device mapper thinpool name")
 	metadataDev := flag.String("metadev", "/dev/loop1", "Device used by devicemapper for metadata storage")
+	netPoolSize := flag.Int("netpoolsize", 50, "Amount of network configs to preallocate in a pool")
 
 	// Parse cmd line arguments
 	flag.Parse()
@@ -115,7 +116,7 @@ func main() {
 
 	// Run vHive components
 	orch = ctriface.NewOrchestrator(
-		*hostIface, *poolName, *metadataDev,
+		*hostIface, *poolName, *metadataDev, *netPoolSize,
 		ctriface.WithTestModeOn(testModeOn),
 		ctriface.WithSnapshots(*isSnapshotsEnabled),
 		ctriface.WithMetricsMode(*isMetricsMode),

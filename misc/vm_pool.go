@@ -29,9 +29,9 @@ import (
 )
 
 // NewVMPool Initializes a pool of VMs
-func NewVMPool(hostIface string) *VMPool {
+func NewVMPool(hostIface string, netPoolSize int) *VMPool {
 	p := new(VMPool)
-	mgr, err := networking.NewNetworkManager(hostIface)
+	mgr, err := networking.NewNetworkManager(hostIface, netPoolSize)
 	if err != nil {
 		log.Println(err)
 	}
@@ -54,13 +54,11 @@ func (p *VMPool) Allocate(vmID string, netMetric *metrics.NetMetric) (*VM, error
 	vm := NewVM(vmID)
 
 	var err error
-	err = p.networkManager.CreateNetwork(vmID, netMetric)
+	vm.NetConfig, err = p.networkManager.CreateNetwork(vmID, netMetric)
 	if err != nil {
 		logger.Warn("VM network allocation failed")
 		return nil, err
 	}
-
-	vm.NetConfig = p.networkManager.GetConfig(vmID)
 
 	p.vmMap.Store(vmID, vm)
 

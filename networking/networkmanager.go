@@ -14,13 +14,13 @@ import (
 
 type NetworkManager struct {
 	sync.Mutex
-
-	freeConfigs     []*NetworkConfig
-
 	nextID          int
-	netConfigs      map[string]*NetworkConfig // Maps vmIDs to their network config
 	hostIfaceName   string
 
+	poolCond         *sync.Cond
+	networkPool     []*NetworkConfig
+
+	netConfigs      map[string]*NetworkConfig // Maps vmIDs to their network config
 }
 
 func getHostIfaceName() (string, error) {
@@ -41,7 +41,7 @@ func getHostIfaceName() (string, error) {
 	return "", errors.New("Failed to fetch host net interface")
 }
 
-func NewNetworkManager(hostIfaceName string) (*NetworkManager, error) {
+func NewNetworkManager(hostIfaceName string, poolSize int) (*NetworkManager, error) {
 	log.Info("Creating network manager")
 	manager := new(NetworkManager)
 
@@ -55,7 +55,7 @@ func NewNetworkManager(hostIfaceName string) (*NetworkManager, error) {
 	}
 
 	manager.netConfigs = make(map[string]*NetworkConfig)
-	manager.freeConfigs = make([]*NetworkConfig, 0)
+	manager.networkPool = make([]*NetworkConfig, 0)
 
 	startId, err := getNetworkStartID()
 	if err == nil {
@@ -64,51 +64,84 @@ func NewNetworkManager(hostIfaceName string) (*NetworkManager, error) {
 		manager.nextID = 0
 	}
 
+	manager.initConfigPool(poolSize)
+	manager.getNetCond = sync.NewCond(new(sync.Mutex))
+
 	return manager, nil
 }
 
-func (mgr *NetworkManager) createNetConfig(vmID string) {
-	mgr.Lock()
-	defer mgr.Unlock()
+func (mgr *NetworkManager) initConfigPool(poolSize int) {
+	var wg sync.WaitGroup
+	wg.Add(poolSize)
 
-	var config *NetworkConfig
-	var id int
-	if len(mgr.freeConfigs) == 0 {
-		id = mgr.nextID
-		mgr.nextID += 1
-		config = NewNetworkConfig(id, mgr.hostIfaceName)
-	} else {
-		config = mgr.freeConfigs[len(mgr.freeConfigs)-1]
-		mgr.freeConfigs = mgr.freeConfigs[:len(mgr.freeConfigs)-1]
+	for i := 0; i < poolSize; i++ {
+		go func() {
+			mgr.allocNetConfig()
+			wg.Done()
+		}()
 	}
+	wg.Wait()
+}
+
+// Set signal true if want to notify
+func (mgr *NetworkManager) allocNetConfig() {
+	mgr.Lock()
+	id := mgr.nextID
+	mgr.nextID += 1
+	mgr.Unlock()
+
+	netCfg := NewNetworkConfig(id, mgr.hostIfaceName)
+	netMetric := metrics.NewNetMetric("")
+	if err := netCfg.CreateNetwork(netMetric); err != nil {
+		log.Errorf("failed to create network %s:", err)
+	}
+
+	mgr.poolCond.L.Lock()
+	mgr.networkPool = append(mgr.networkPool, netCfg)
+	mgr.poolCond.Signal()
+	mgr.poolCond.L.Unlock()
+}
+
+func (mgr *NetworkManager) createNetConfig(vmID string) *NetworkConfig {
+	go mgr.allocNetConfig() // Add netconfig to pool to keep pool to configured size
+
+	mgr.poolCond.L.Lock()
+	if len(mgr.networkPool) == 0 {
+		mgr.poolCond.Wait()
+	}
+	config := mgr.networkPool[len(mgr.networkPool)-1]
+	mgr.networkPool = mgr.networkPool[:len(mgr.networkPool)-1]
+	mgr.poolCond.L.Unlock()
+
+	mgr.Lock()
 	mgr.netConfigs[vmID] = config
+	mgr.Unlock()
+	return config
 }
 
 func (mgr *NetworkManager) removeNetConfig(vmID string) {
 	mgr.Lock()
-	defer mgr.Unlock()
-
 	config := mgr.netConfigs[vmID]
-	mgr.freeConfigs = append(mgr.freeConfigs, config)
 	delete(mgr.netConfigs, vmID)
+	mgr.Unlock()
+
+	mgr.poolCond.L.Lock()
+	mgr.networkPool = append(mgr.networkPool, config)
+	mgr.poolCond.Signal()
+	mgr.poolCond.L.Unlock()
 }
 
-func (mgr *NetworkManager) CreateNetwork(vmID string, netMetric *metrics.NetMetric) error {
+func (mgr *NetworkManager) CreateNetwork(vmID string, netMetric *metrics.NetMetric) (*NetworkConfig, error) {
 	var (
 		tStart               time.Time
 	)
 
-	// Create network config for VM KEEP THIS
+	// Create network config for VM
 	tStart = time.Now()
-	mgr.createNetConfig(vmID)
-	netCfg := mgr.GetConfig(vmID)
+	netCfg := mgr.createNetConfig(vmID)
 	netMetric.CreateConfig = metrics.ToUS(time.Since(tStart))
 
-	if err := netCfg.CreateNetwork(netMetric); err != nil {
-		return err
-	}
-
-	return nil
+	return netCfg, nil
 }
 
 func (mgr *NetworkManager) GetConfig(vmID string) *NetworkConfig {
@@ -120,14 +153,8 @@ func (mgr *NetworkManager) GetConfig(vmID string) *NetworkConfig {
 }
 
 func (mgr *NetworkManager) RemoveNetwork(vmID string) error {
-	/*netCfg := mgr.GetConfig(vmID)
-
-	if err := netCfg.RemoveNetwork(vmID); err != nil {
-		return err
-	}*/
-
+	// netCfg.RemoveNetwork(vmID). Not done because keep pool
 	mgr.removeNetConfig(vmID)
-
 	return nil
 }
 
