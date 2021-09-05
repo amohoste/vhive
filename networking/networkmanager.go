@@ -64,8 +64,8 @@ func NewNetworkManager(hostIfaceName string, poolSize int) (*NetworkManager, err
 		manager.nextID = 0
 	}
 
-	manager.initConfigPool(poolSize)
 	manager.poolCond = sync.NewCond(new(sync.Mutex))
+	manager.initConfigPool(poolSize)
 
 	return manager, nil
 }
