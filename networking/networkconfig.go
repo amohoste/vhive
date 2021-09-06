@@ -74,7 +74,7 @@ func (cfg *NetworkConfig) GetContainerCIDR() string {
 	return cfg.containerCIDR
 }
 
-func (cfg *NetworkConfig) createVmNetwork(netMetric *metrics.NetMetric) error {
+func (cfg *NetworkConfig) createVmNetwork(hostNsHandle netns.NsHandle, netMetric *metrics.NetMetric) error {
 	var (
 		tStart               time.Time
 	)
@@ -153,6 +153,7 @@ func (cfg *NetworkConfig) createHostNetwork(netMetric *metrics.NetMetric) error 
 		return err
 	}
 	netMetric.SetForward = metrics.ToUS(time.Since(tStart))
+	return nil
 }
 
 func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
@@ -176,7 +177,7 @@ func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
 	netMetric.GetHostNs = metrics.ToUS(time.Since(tStart))
 
 	// 3. Setup networking in vm namespace
-	if err := cfg.createVmNetwork(netMetric); err != nil {
+	if err := cfg.createVmNetwork(hostNsHandle, netMetric); err != nil {
 		netns.Set(hostNsHandle)
 		runtime.UnlockOSThread()
 		return err
