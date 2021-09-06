@@ -112,6 +112,7 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	if estimatedSnapSizeMib > availableMib {
 		var err error
 		spaceNeeded := estimatedSnapSizeMib - availableMib
+		fmt.Printf("Freeing space, available %d estimated size %d\n", availableMib, estimatedSnapSizeMib)
 		removeContainerSnaps, err = mgr.freeSpace(spaceNeeded)
 		if err != nil {
 			mgr.Unlock()
@@ -172,7 +173,7 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 		toDelete = append(toDelete, snap.revisionId)
 		removeContainerSnaps = append(removeContainerSnaps, snap.containerSnapName)
 		freedMib += snap.TotalSizeMiB
-		fmt.Printf("Delete %s, total freed %d\n", snap.revisionId, neededMib)
+		fmt.Printf("Delete %s, total freed %d\n", snap.revisionId, freedMib)
 	}
 
 	// Delete snapshots resources, update clock & delete snapshot map entry
