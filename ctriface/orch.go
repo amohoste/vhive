@@ -79,6 +79,7 @@ func NewOrchestrator(hostIface, poolName, metadataDev string, netPoolSize int, o
 	o := new(Orchestrator)
 	o.vmPool = misc.NewVMPool(hostIface, netPoolSize)
 	o.snapshotsDir = "/fccd/snapshots"
+	o.snapshotter = "devmapper"
 	o.hostIface = hostIface
 
 	for _, opt := range opts {
