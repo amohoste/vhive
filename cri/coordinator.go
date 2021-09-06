@@ -24,6 +24,7 @@ package cri
 
 import (
 	"context"
+	"fmt"
 	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/snapshotting"
 	"github.com/pkg/errors"
@@ -299,8 +300,9 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 			go c.metricsManager.AddForkMetric(forkMetric)
 		}
 	} else {
-		fi.logger.Info("Failed to add snapshot: %s", err)
-		return nil
+		if fmt.Sprint(err) == "There is not enough free space available" {
+			fi.logger.Info(fmt.Sprintf("There is not enough space available for snapshots of %s", fi.revisionId))
+		}
 	}
 
 	return nil
