@@ -23,10 +23,10 @@
 package ctriface
 
 import (
+	"github.com/ease-lab/vhive/ctrimages"
 	"github.com/ease-lab/vhive/devmapper"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -56,12 +56,11 @@ const (
 // Orchestrator Drives all VMs
 type Orchestrator struct {
 	vmPool       *misc.VMPool				 // Pool of active VMs. Map of vmid to vms and tapmanager
-	cachedImages map[string]containerd.Image // Cached container images
-	imageLock    sync.Mutex
 	snapshotter  string						 // image snapshotter
 	client       *containerd.Client			 // containerd client
 	fcClient     *fcclient.Client			 // firecrackercontainerd client
 	devMapper    *devmapper.DeviceMapper
+	imageManager *ctrimages.ImageManager
 	// store *skv.KVStore
 	snapshotsEnabled bool					 // VM snapshots enabled
 	isUPFEnabled     bool
@@ -79,8 +78,6 @@ func NewOrchestrator(hostIface, poolName, metadataDev string, netPoolSize int, o
 
 	o := new(Orchestrator)
 	o.vmPool = misc.NewVMPool(hostIface, netPoolSize)
-	o.cachedImages = make(map[string]containerd.Image)
-	o.snapshotter = "devmapper"
 	o.snapshotsDir = "/fccd/snapshots"
 	o.hostIface = hostIface
 
@@ -112,6 +109,9 @@ func NewOrchestrator(hostIface, poolName, metadataDev string, netPoolSize int, o
 	}
 	log.Info("Created firecracker client")
 	o.devMapper = devmapper.NewDeviceMapper(o.client, poolName, metadataDev)
+
+	o.imageManager = ctrimages.NewImageManager(o.client, o.snapshotter)
+
 	return o
 }
 
