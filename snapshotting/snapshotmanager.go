@@ -147,6 +147,7 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 	oldSize := snap.TotalSizeMiB
 	snap.UpdateDiskSize() // Should always result in a decrease or equal!
 	sizeIncrement = snap.TotalSizeMiB - oldSize
+	fmt.Printf("Updating disk size, old size %d, new size %d\n", oldSize, snap.TotalSizeMiB)
 
 	mgr.Lock()
 	defer mgr.Unlock()
