@@ -134,6 +134,7 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 	mgr.Lock()
 	snap, present := mgr.snapshots[revision]
 	if !present {
+		mgr.Unlock()
 		return errors.New(fmt.Sprintf("Snapshot for revision %s to commit does not exist", revision))
 	}
 	mgr.Unlock()

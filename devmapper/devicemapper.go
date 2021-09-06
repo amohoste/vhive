@@ -107,10 +107,12 @@ func (dmpr *DeviceMapper) RemoveDeviceSnapshot(ctx context.Context, snapKey stri
 
 	lease, present := dmpr.leases[snapKey]
 	if ! present {
+		dmpr.Unlock()
 		return errors.New(fmt.Sprintf("Delete device snapshot: lease for key %s does not exist", snapKey))
 	}
 
 	if _, present := dmpr.snapDevices[snapKey]; !present {
+		dmpr.Unlock()
 		return errors.New(fmt.Sprintf("Delete device snapshot: device for key %s does not exist", snapKey))
 	}
 	delete(dmpr.snapDevices, snapKey)

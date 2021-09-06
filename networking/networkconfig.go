@@ -74,26 +74,10 @@ func (cfg *NetworkConfig) GetContainerCIDR() string {
 	return cfg.containerCIDR
 }
 
-func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
+func (cfg *NetworkConfig) createVmNetwork(netMetric *metrics.NetMetric) error {
 	var (
 		tStart               time.Time
 	)
-
-	// Lock the OS Thread so we don't accidentally switch namespaces
-	tStart = time.Now()
-	runtime.LockOSThread()
-	netMetric.LockOsThread = metrics.ToUS(time.Since(tStart))
-
-	// 0. Get host network namespace
-	tStart = time.Now()
-	hostNsHandle, err := netns.Get()
-	defer hostNsHandle.Close()
-	if err != nil {
-		log.Printf("Failed to get host ns, %s\n", err)
-		return err
-	}
-	netMetric.GetHostNs = metrics.ToUS(time.Since(tStart))
-
 	// A. In uVM netns
 	// A.1. Create network namespace for uVM & join network namespace
 	tStart = time.Now()
@@ -141,8 +125,64 @@ func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
 	}
 	netMetric.SetupNat = metrics.ToUS(time.Since(tStart))
 
+	return nil
+}
+
+func (cfg *NetworkConfig) createHostNetwork(netMetric *metrics.NetMetric) error {
+	var (
+		tStart               time.Time
+	)
 	// B. In host netns
-	// B.1 Go back to host namespace
+	// B.1 Configure host side veth pair
+	tStart = time.Now()
+	if err := configVeth(cfg.getVeth1Name(), cfg.getVeth1CIDR()); err != nil {
+		return err
+	}
+	netMetric.ConfigVethHost = metrics.ToUS(time.Since(tStart))
+
+	// B.2 Add a route on the host for the clone address
+	tStart = time.Now()
+	if err := addRoute(cfg.GetCloneIP(), cfg.getVeth0CIDR()); err != nil {
+		return err
+	}
+	netMetric.Addroute = metrics.ToUS(time.Since(tStart))
+
+	// B.3 Setup nat to route traffic out of veth device
+	tStart = time.Now()
+	if err := setupForwardRules(cfg.getVeth1Name(), cfg.hostIfaceName); err != nil {
+		return err
+	}
+	netMetric.SetForward = metrics.ToUS(time.Since(tStart))
+}
+
+func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
+	var (
+		tStart               time.Time
+	)
+
+	// 1. Lock the OS Thread so we don't accidentally switch namespaces
+	tStart = time.Now()
+	runtime.LockOSThread()
+	netMetric.LockOsThread = metrics.ToUS(time.Since(tStart))
+
+	// 2. Get host network namespace
+	tStart = time.Now()
+	hostNsHandle, err := netns.Get()
+	defer hostNsHandle.Close()
+	if err != nil {
+		log.Printf("Failed to get host ns, %s\n", err)
+		return err
+	}
+	netMetric.GetHostNs = metrics.ToUS(time.Since(tStart))
+
+	// 3. Setup networking in vm namespace
+	if err := cfg.createVmNetwork(netMetric); err != nil {
+		netns.Set(hostNsHandle)
+		runtime.UnlockOSThread()
+		return err
+	}
+
+	// 4. Go back to host namespace
 	tStart = time.Now()
 	err = netns.Set(hostNsHandle)
 	if err != nil {
@@ -154,26 +194,10 @@ func (cfg *NetworkConfig) CreateNetwork(netMetric *metrics.NetMetric) error {
 	runtime.UnlockOSThread()
 	netMetric.UnlockOsThread = metrics.ToUS(time.Since(tStart))
 
-	// B.2 Configure host side veth pair
-	tStart = time.Now()
-	if err := configVeth(cfg.getVeth1Name(), cfg.getVeth1CIDR()); err != nil {
+	// 5. Setup networking in host namespace
+	if err := cfg.createHostNetwork(netMetric); err != nil {
 		return err
 	}
-	netMetric.ConfigVethHost = metrics.ToUS(time.Since(tStart))
-
-	// B.3 Add a route on the host for the clone address
-	tStart = time.Now()
-	if err := addRoute(cfg.GetCloneIP(), cfg.getVeth0CIDR()); err != nil {
-		return err
-	}
-	netMetric.Addroute = metrics.ToUS(time.Since(tStart))
-
-	// B.4 Setup nat to route traffic out of veth device
-	tStart = time.Now()
-	if err := setupForwardRules(cfg.getVeth1Name(), cfg.hostIfaceName); err != nil {
-		return err
-	}
-	netMetric.SetForward = metrics.ToUS(time.Since(tStart))
 
 	return nil
 }
