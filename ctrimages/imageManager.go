@@ -29,22 +29,22 @@ func NewImageState() *ImageState {
 type ImageManager struct {
 	sync.Mutex
 	snapshotter  string						 // image snapshotter
-	cachedImages map[string]*containerd.Image // Cached container images
+	cachedImages map[string]containerd.Image // Cached container images
 	imageStates  map[string]*ImageState
 	client       *containerd.Client
 }
 
 func NewImageManager(client *containerd.Client, snapshotter string) *ImageManager {
-	log.Info("Creating network manager")
+	log.Info("Creating image manager")
 	manager := new(ImageManager)
 	manager.snapshotter = snapshotter
-	manager.cachedImages = make(map[string]*containerd.Image)
+	manager.cachedImages = make(map[string]containerd.Image)
 	manager.imageStates = make(map[string]*ImageState)
 	manager.client = client
 	return manager
 }
 
-func (mgr *ImageManager) pullImage(ctx context.Context, imageName string) (*containerd.Image, error) {
+func (mgr *ImageManager) pullImage(ctx context.Context, imageName string) error {
 	var err error
 	var image containerd.Image
 	log.Debug(fmt.Sprintf("Pulling image %s", imageName))
@@ -72,18 +72,15 @@ func (mgr *ImageManager) pullImage(ctx context.Context, imageName string) (*cont
 		)
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	mgr.Lock()
-	mgr.cachedImages[imageName] = &image
+	mgr.cachedImages[imageName] = image
 	mgr.Unlock()
-	return &image, nil
+	return nil
 }
 
 func (mgr *ImageManager) GetImage(ctx context.Context, imageName string) (*containerd.Image, error) {
-	var image *containerd.Image
-	var err error
-
 	mgr.Lock()
 	imgState, found := mgr.imageStates[imageName]
 	if !found {
@@ -92,23 +89,22 @@ func (mgr *ImageManager) GetImage(ctx context.Context, imageName string) (*conta
 	}
 	mgr.Unlock()
 
+	// Pull image if necessary
 	imgState.Lock()
 	if !imgState.pulled {
-		image, err = mgr.pullImage(ctx, imageName)
-		if err != nil {
+		if err := mgr.pullImage(ctx, imageName); err != nil {
 			imgState.Unlock()
 			return nil, err
 		}
 		imgState.pulled = true
-		imgState.Unlock()
-	} else {
-		imgState.Unlock()
-		mgr.Lock()
-		image = mgr.cachedImages[imageName]
-		mgr.Unlock()
 	}
+	imgState.Unlock()
 
-	return image, nil
+	mgr.Lock()
+	image := mgr.cachedImages[imageName]
+	mgr.Unlock()
+
+	return &image, nil
 }
 
 // Converts an image name to a url if it is not a URL
