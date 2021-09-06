@@ -24,7 +24,6 @@ package cri
 
 import (
 	"context"
-	"fmt"
 	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/snapshotting"
 	"github.com/pkg/errors"
@@ -255,12 +254,9 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 	)
 
 	if removeContainerSnaps, snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
-		fmt.Printf("create snapshot for %s\n", fi.vmID)
 		// Not very clean
 		if removeContainerSnaps != nil {
-			fmt.Println("cleaning up containersnaps")
 			for _, cleanupSnapId := range *removeContainerSnaps {
-				fmt.Printf("cleaning up %s\n", cleanupSnapId)
 				if err := c.orch.CleanupRevisionSnapshot(ctx, cleanupSnapId); err != nil {
 					return errors.Wrap(err, "removing devmapper revision snapshot")
 				}
@@ -275,7 +271,6 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 
 		snapMetric := metrics.NewSnapMetric(fi.revisionId)
 
-		fmt.Println("pausing vm")
 		tStart := time.Now()
 		err = c.orch.PauseVM(ctxTimeout, fi.vmID)
 		if err != nil {
@@ -284,7 +279,6 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 		}
 		snapMetric.PauseVm = metrics.ToUS(time.Since(tStart))
 
-		fmt.Println("creating snapshot")
 		forkMetric := metrics.NewForkMetric(fi.revisionId)
 		err = c.orch.CreateSnapshot(ctxTimeout, fi.vmID, snap, snapMetric, forkMetric)
 		if err != nil {
@@ -292,13 +286,11 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 			return nil
 		}
 
-		fmt.Println("committing snapshot")
 		if err := c.snapshotManager.CommitSnapshot(fi.revisionId); err != nil {
 			fi.logger.WithError(err).Error("failed to commit snapshot")
 			return err
 		}
 
-		fmt.Println("create snapshot done")
 		if c.isMetricMode {
 			snapMetric.Failed = false
 			go c.metricsManager.AddSnapMetric(snapMetric)
@@ -320,12 +312,10 @@ func (c *Coordinator) orchStopVM(ctx context.Context, fi *FuncInstance) error {
 		return nil
 	}
 
-	fmt.Printf("Stop vm %s\n", fi.vmID)
 	if err := c.orch.StopSingleVM(ctx, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to stop VM for instance")
 		return err
 	}
-	fmt.Printf("Stop vm %s done\n", fi.vmID)
 
 	return nil
 }

@@ -104,6 +104,7 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
 
 	if _, present := mgr.snapshots[revision]; present {
+		mgr.Unlock()
 		return nil, nil, errors.New(fmt.Sprintf("Add: Snapshot for revision %s already exists", revision))
 	}
 
