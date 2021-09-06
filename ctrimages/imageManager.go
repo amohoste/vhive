@@ -2,7 +2,6 @@ package ctrimages
 
 import (
 	"context"
-	"fmt"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/remotes/docker"
 	log "github.com/sirupsen/logrus"
@@ -47,7 +46,6 @@ func NewImageManager(client *containerd.Client, snapshotter string) *ImageManage
 func (mgr *ImageManager) pullImage(ctx context.Context, imageName string) error {
 	var err error
 	var image containerd.Image
-	log.Debug(fmt.Sprintf("Pulling image %s", imageName))
 
 	imageURL := getImageURL(imageName)
 	local, _ := isLocalDomain(imageURL)
