@@ -26,6 +26,7 @@ package ctriface
 
 import (
 	"context"
+	"fmt"
 	"github.com/ease-lab/vhive/snapshotting"
 	"sync"
 	"syscall"
@@ -96,6 +97,8 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 		return nil,  errors.Wrapf(err, "Failed to get/pull image")
 	}
 	bootMetric.GetImage = metrics.ToUS(time.Since(tStart))
+
+	fmt.Printf("Pulled image, %s\n", *vm.Image)
 
 	// 3. Create VM
 	tStart = time.Now()
