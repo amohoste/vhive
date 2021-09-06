@@ -106,7 +106,8 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	}
 
 	var removeContainerSnaps *[]string
-	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
+	estimatedSnapSizeMibf := float64(memSizeMib) * 1.25
+	var estimatedSnapSizeMib = int64(math.Ceil(estimatedSnapSizeMibf))
 
 	availableMib := mgr.capacityMib - mgr.usedMib
 	if estimatedSnapSizeMib > availableMib {
