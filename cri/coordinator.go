@@ -24,6 +24,7 @@ package cri
 
 import (
 	"context"
+	"fmt"
 	"github.com/ease-lab/vhive/metrics"
 	"github.com/ease-lab/vhive/snapshotting"
 	"github.com/pkg/errors"
@@ -254,6 +255,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 	)
 
 	if removeContainerSnaps, snap, err := c.snapshotManager.InitSnapshot(fi.revisionId, fi.image, fi.coldStartTimeMs, fi.memSizeMib, fi.vCPUCount, c.isSparseSnaps); err == nil {
+		fmt.Printf("create snapshot for %s\n", fi.vmID)
 		// Not very clean
 		if removeContainerSnaps != nil {
 			for _, cleanupSnapId := range *removeContainerSnaps {
@@ -312,10 +314,12 @@ func (c *Coordinator) orchStopVM(ctx context.Context, fi *FuncInstance) error {
 		return nil
 	}
 
+	fmt.Printf("Stop vm %s\n", fi.vmID)
 	if err := c.orch.StopSingleVM(ctx, fi.vmID); err != nil {
 		fi.logger.WithError(err).Error("failed to stop VM for instance")
 		return err
 	}
+	fmt.Printf("Stop vm %s done\n", fi.vmID)
 
 	return nil
 }
