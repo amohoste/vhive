@@ -299,7 +299,7 @@ func (c *Coordinator) orchCreateSnapshot(ctx context.Context, fi *FuncInstance) 
 			go c.metricsManager.AddForkMetric(forkMetric)
 		}
 	} else {
-		fi.logger.Warnf("Not enough space for snapshot: %s", err)
+		fi.logger.Info("Failed to add snapshot: %s", err)
 		return nil
 	}
 
