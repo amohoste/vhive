@@ -4,7 +4,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/ricochet2200/go-disk-usage/du"
+	"golang.org/x/sys/unix"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -52,10 +53,16 @@ func NewSnapshot(revisionId, baseFolder, image string, sizeMiB, coldStartTimeMs,
 
 // Updates disk size to real used disk size
 func (snp *Snapshot) UpdateDiskSize() {
-	usage := du.NewDiskUsage(snp.snapDir)
-	snp.TotalSizeMiB = int64(usage.Used() / (1024 * 1024))
+	snp.TotalSizeMiB = getRealSizeMib(snp.GetMemFilePath()) + getRealSizeMib(snp.GetSnapFilePath()) + getRealSizeMib(snp.GetInfoFilePath()) + getRealSizeMib(snp.GetPatchFilePath())
 }
 
+func getRealSizeMib(filePath string) int64 {
+	var st unix.Stat_t
+	if err := unix.Stat(filePath, &st); err != nil {
+		return 0
+	}
+	return int64(math.Ceil((float64(st.Blocks) * 512) / (1024 * 1024)))
+}
 
 func (snp *Snapshot) UpdateScore() {
 	snp.score = snp.lastUsedClock + (snp.freq * snp.coldStartTimeMs) / snp.TotalSizeMiB

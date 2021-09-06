@@ -62,7 +62,6 @@ require (
 	github.com/google/nftables v0.0.0-20210818072602-d553cd2d411d
 	github.com/opencontainers/image-spec v1.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/ricochet2200/go-disk-usage/du v0.0.0-20210707232629-ac9918953285
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tamerh/xml-stream-parser v1.4.0
