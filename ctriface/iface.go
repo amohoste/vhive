@@ -98,8 +98,6 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, memS
 	}
 	bootMetric.GetImage = metrics.ToUS(time.Since(tStart))
 
-	fmt.Printf("Pulled image, %s\n", *vm.Image)
-
 	// 3. Create VM
 	tStart = time.Now()
 	conf := o.getVMConfig(vm, trackDirtyPages)
