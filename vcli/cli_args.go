@@ -18,13 +18,19 @@ type CliArgs struct {
 	all         *bool
 }
 
+const (
+	defaultMemSize = 256
+	defaultVCPUCount = 1
+	defaultAmount = 1
+)
+
 func newCliArgs() *CliArgs {
 	c := &CliArgs{
 		image: flag.String("image", "", "Image name to boot a uVM from (when booting from scratch)"),
 		revision: flag.String("revision", "", "Revision id (eg. helloworld-go-00001)"),
-		memsizeMib: flag.Uint("memsizemib", 256, "Capacity set aside for storing snapshots (Mib)"),
-		vCpuCount:   flag.Uint("vcpucount", 1, "Capacity set aside for storing snapshots (Mib)"),
-		amount: flag.Int("amount", 1, "Turn on to boot from snapshot"),
+		memsizeMib: flag.Uint("memsizemib", defaultMemSize, "Capacity set aside for storing snapshots (Mib)"),
+		vCpuCount:   flag.Uint("vcpucount", defaultVCPUCount, "Capacity set aside for storing snapshots (Mib)"),
+		amount: flag.Int("amount", defaultAmount, "Turn on to boot from snapshot"),
 		id: flag.String("id", "", "Id to delete"),
 		all: flag.Bool("all", false, "Delete all vms"),
 	}
@@ -44,13 +50,13 @@ func (c *CliArgs) setDefaults() {
 	if err := flag.Set("revision", ""); err != nil {
 		fmt.Println(err)
 	}
-	if err := flag.Set("memsizemib", "2048"); err != nil {
+	if err := flag.Set("memsizemib", fmt.Sprintf("%d", defaultMemSize)); err != nil {
 		fmt.Println(err)
 	}
-	if err := flag.Set("vcpucount", "1"); err != nil {
+	if err := flag.Set("vcpucount", fmt.Sprintf("%d", defaultVCPUCount)); err != nil {
 		fmt.Println(err)
 	}
-	if err := flag.Set("amount", "1"); err != nil {
+	if err := flag.Set("amount", fmt.Sprintf("%d", defaultAmount)); err != nil {
 		fmt.Println(err)
 	}
 	if err := flag.Set("id", ""); err != nil {
