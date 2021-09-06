@@ -26,7 +26,6 @@ package ctriface
 
 import (
 	"context"
-	"fmt"
 	"github.com/ease-lab/vhive/snapshotting"
 	"sync"
 	"syscall"
