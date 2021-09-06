@@ -184,9 +184,9 @@ func getImageSuggestions(uVms map[string]*VmInstance) []prompt.Suggest {
 	for image, count := range seen {
 		suggestions[i].Text = image
 		suggestions[i].Description = fmt.Sprintf("%d instances", count)
+		i += 1
 	}
 
-	i += 1
 	return suggestions
 }
 
@@ -207,8 +207,8 @@ func getRevisionSuggestions(uVms map[string]*VmInstance) []prompt.Suggest {
 	for image, count := range seen {
 		suggestions[i].Text = image
 		suggestions[i].Description = fmt.Sprintf("%d instances", count)
+		i += 1
 	}
 
-	i += 1
 	return suggestions
 }

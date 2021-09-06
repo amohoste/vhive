@@ -18,7 +18,6 @@ type ImageState struct {
 }
 
 func NewImageState() *ImageState {
-	log.Info("Creating network manager")
 	state := new(ImageState)
 	state.pulled = false
 	return state
