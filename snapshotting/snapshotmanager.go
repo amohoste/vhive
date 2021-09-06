@@ -113,7 +113,6 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	if estimatedSnapSizeMib > availableMib {
 		var err error
 		spaceNeeded := estimatedSnapSizeMib - availableMib
-		fmt.Printf("Freeing space, available %d estimated size %d orig size %d\n", availableMib, estimatedSnapSizeMib, memSizeMib)
 		removeContainerSnaps, err = mgr.freeSpace(spaceNeeded)
 		if err != nil {
 			mgr.Unlock()
@@ -148,7 +147,6 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 	oldSize := snap.TotalSizeMiB
 	snap.UpdateDiskSize() // Should always result in a decrease or equal!
 	sizeIncrement = snap.TotalSizeMiB - oldSize
-	fmt.Printf("Updating disk size, old size %d, new size %d\n", oldSize, snap.TotalSizeMiB)
 
 	mgr.Lock()
 	defer mgr.Unlock()
@@ -163,7 +161,6 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 // Make sure to have lock when calling!
 // TODO: might have to lock more efficiently so not locked when deleting folders
 func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
-	fmt.Printf("Freeing space, need %d\n", neededMib)
 	var toDelete []string
 	var freedMib int64 = 0
 	var removeContainerSnaps []string
@@ -175,7 +172,6 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 		toDelete = append(toDelete, snap.revisionId)
 		removeContainerSnaps = append(removeContainerSnaps, snap.containerSnapName)
 		freedMib += snap.TotalSizeMiB
-		fmt.Printf("Delete %s, total freed %d\n", snap.revisionId, freedMib)
 	}
 
 	// Delete snapshots resources, update clock & delete snapshot map entry
