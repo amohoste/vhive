@@ -113,7 +113,7 @@ func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs
 	if estimatedSnapSizeMib > availableMib {
 		var err error
 		spaceNeeded := estimatedSnapSizeMib - availableMib
-		fmt.Printf("Freeing space, available %d estimated size %d\n", availableMib, estimatedSnapSizeMib)
+		fmt.Printf("Freeing space, available %d estimated size %d orig size %d\n", availableMib, estimatedSnapSizeMib, memSizeMib)
 		removeContainerSnaps, err = mgr.freeSpace(spaceNeeded)
 		if err != nil {
 			mgr.Unlock()
