@@ -51,8 +51,8 @@ func (mgr *SnapshotManager) AcquireSnapshot(revision string) (*Snapshot, error) 
 		return nil, errors.New(fmt.Sprintf("Get: Snapshot for revision %s does not exist", revision))
 	}
 
-	if ! snap.usable {
-		return nil, errors.New(fmt.Sprintf("Snapshot is not usable"))
+	if ! snap.usable { // Could also wait until snapshot usable (trade-off)
+		return nil, errors.New(fmt.Sprintf("Snapshot is not yet usable"))
 	}
 
 	if snap.numUsing == 0 {
@@ -100,18 +100,20 @@ func (mgr *SnapshotManager) ReleaseSnapshot(revision string) error {
 func (mgr *SnapshotManager) InitSnapshot(revision, image string, coldStartTimeMs int64, memSizeMib, vCPUCount uint32, sparse bool) (*[]string, *Snapshot, error) {
 	mgr.Lock()
 
-	var removeContainerSnaps *[]string
-	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
-
 	if _, present := mgr.snapshots[revision]; present {
 		mgr.Unlock()
 		return nil, nil, errors.New(fmt.Sprintf("Add: Snapshot for revision %s already exists", revision))
 	}
 
+	var removeContainerSnaps *[]string
+	var estimatedSnapSizeMib = int64(math.Round(float64(memSizeMib) * 1.25))
+
 	availableMib := mgr.capacityMib - mgr.usedMib
 	if estimatedSnapSizeMib > availableMib {
 		var err error
-		if removeContainerSnaps, err = mgr.freeSpace(estimatedSnapSizeMib - availableMib); err != nil {
+		spaceNeeded := estimatedSnapSizeMib - availableMib
+		removeContainerSnaps, err = mgr.freeSpace(spaceNeeded)
+		if err != nil {
 			mgr.Unlock()
 			return removeContainerSnaps, nil, err
 		}
@@ -158,36 +160,34 @@ func (mgr *SnapshotManager) CommitSnapshot(revision string) error {
 // Make sure to have lock when calling!
 // TODO: might have to lock more efficiently so not locked when deleting folders
 func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
+	fmt.Printf("Freeing space, need %d\n", neededMib)
 	var toDelete []string
 	var freedMib int64 = 0
 	var removeContainerSnaps []string
 
 	// Devmapper snap names to delete
 	for freedMib < neededMib && len(mgr.freeSnaps) > 0 {
-		snap :=  heap.Pop(&mgr.freeSnaps).(*Snapshot)
+		snap := heap.Pop(&mgr.freeSnaps).(*Snapshot)
 		snap.usable = false
 		toDelete = append(toDelete, snap.revisionId)
 		removeContainerSnaps = append(removeContainerSnaps, snap.containerSnapName)
 		freedMib += snap.TotalSizeMiB
+		fmt.Printf("Delete %s, total freed %d\n", snap.revisionId, neededMib)
 	}
 
-	// Delete snapshots resources
-	for _, revisionId := range toDelete {
-		snapDir := mgr.snapshots[revisionId].snapDir
-		if err := os.RemoveAll(snapDir); err != nil {
-			return &removeContainerSnaps, errors.Wrapf(err, "removing snapshot snapDir %s", snapDir)
-		}
-	}
-
-	// Delete snapshot map entry and update clock
+	// Delete snapshots resources, update clock & delete snapshot map entry
 	for _, revisionId := range toDelete {
 		snap := mgr.snapshots[revisionId]
+		if err := os.RemoveAll(snap.snapDir); err != nil {
+			return &removeContainerSnaps, errors.Wrapf(err, "removing snapshot snapDir %s", snap.snapDir)
+		}
 		snap.UpdateScore()
 		if snap.score > mgr.clock {
 			mgr.clock = snap.score
 		}
 		delete(mgr.snapshots, revisionId)
 	}
+
 	mgr.usedMib -= freedMib
 
 	if freedMib < neededMib {
