@@ -87,7 +87,8 @@ func (mgr *ImageManager) GetImage(ctx context.Context, imageName string) (*conta
 	mgr.Lock()
 	imgState, found := mgr.imageStates[imageName]
 	if !found {
-		mgr.imageStates[imageName] = NewImageState()
+		imgState = NewImageState()
+		mgr.imageStates[imageName] = imgState
 	}
 	mgr.Unlock()
 
