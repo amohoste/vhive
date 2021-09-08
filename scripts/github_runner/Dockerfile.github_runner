@@ -51,9 +51,9 @@ RUN apt-get update && \
     sudo sysctl net.ipv4.ip_forward=1 && \
     sudo sysctl --system && \
     sudo mkdir -p /etc/firecracker-containerd && \
-    sudo mkdir -p /fccd/firecracker-containerd/runtime && \
+    sudo mkdir -p /var/lib/firecracker-containerd/runtime && \
     sudo mkdir -p /etc/containerd/ && \
-    sudo curl -fsSL -o /fccd/firecracker-containerd/runtime/hello-vmlinux.bin https://s3.amazonaws.com/spec.ccfc.min/img/hello/kernel/hello-vmlinux.bin
+    sudo curl -fsSL -o /var/lib/firecracker-containerd/runtime/hello-vmlinux.bin https://s3.amazonaws.com/spec.ccfc.min/img/hello/kernel/hello-vmlinux.bin
 
 COPY scripts/github_runner/setup_runner.sh /setup_runner.sh
 COPY scripts/create_devmapper.sh /create_devmapper.sh

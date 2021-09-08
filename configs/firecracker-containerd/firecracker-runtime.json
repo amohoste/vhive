@@ -1,7 +1,7 @@
 {
   "firecracker_binary_path": "/usr/local/bin/firecracker",
-  "kernel_image_path": "/fccd/firecracker-containerd/runtime/hello-vmlinux.bin",
-  "root_drive": "/fccd/firecracker-containerd/runtime/default-rootfs.img",
+  "kernel_image_path": "/var/lib/firecracker-containerd/runtime/hello-vmlinux.bin",
+  "root_drive": "/var/lib/firecracker-containerd/runtime/default-rootfs.img",
   "cpu_count": 1,
   "cpu_template": "T2",
   "log_fifo": "fc-logs.fifo",

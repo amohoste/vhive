@@ -1,9 +1,9 @@
 #!/bin/bash
 
-sudo mkdir -p /fccd/firecracker-containerd/snapshotter/devmapper
+sudo mkdir -p /var/lib/firecracker-containerd/snapshotter/devmapper
 
-pushd /fccd/firecracker-containerd/snapshotter/devmapper > /dev/null
-DIR=/fccd/firecracker-containerd/snapshotter/devmapper
+pushd /var/lib/firecracker-containerd/snapshotter/devmapper > /dev/null
+DIR=/var/lib/firecracker-containerd/snapshotter/devmapper
 POOL=fc-dev-thinpool
 
 # Create thinpool devices

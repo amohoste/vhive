@@ -60,13 +60,13 @@ sudo rm /etc/firecracker-containerd/fccd-cri.sock
 rm ${HOME}/.kube/config
 sudo rm -rf ${HOME}/tmp
 
-echo Cleaning /fccd/firecracker-containerd/*
-for d in containerd shim-base snapshotter; do sudo rm -rf /fccd/firecracker-containerd/$d; done
+echo Cleaning /var/lib/firecracker-containerd/*
+for d in containerd shim-base snapshotter; do sudo rm -rf /var/lib/firecracker-containerd/$d; done
 
-echo Cleaning /fccd/run/firecracker-containerd/*
-sudo rm -rf /fccd/run/firecracker-containerd/containerd.sock.ttrpc \
-    /fccd/run/firecracker-containerd/io.containerd.runtime.v1.linux \
-    /fccd/run/firecracker-containerd/io.containerd.runtime.v2.task
+echo Cleaning /run/firecracker-containerd/*
+sudo rm -rf /run/firecracker-containerd/containerd.sock.ttrpc \
+    /run/firecracker-containerd/io.containerd.runtime.v1.linux \
+    /run/firecracker-containerd/io.containerd.runtime.v2.task
 
 echo Creating a fresh devmapper
 $PWD/../create_devmapper.sh
