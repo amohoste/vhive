@@ -18,7 +18,7 @@ sudo lvcreate --wipesignatures y -n dmdata --size 100G VG1
 
 METADEV=/dev/VG1/dmmeta
 if [[ -L "${METADEV}" ]]; then
-    sudo lvremove -y METADEV
+    sudo lvremove -y $METADEV
 fi
 
 sudo lvcreate --wipesignatures y -n dmmeta --size 2G VG1
