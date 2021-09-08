@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package proto;
+
+service SnapStatsReporter {
+  rpc GetAvailableSnaps (AvailableSnapsReq) returns (AvailableSnapsResp) {}
+}
+
+message AvailableSnapsReq {
+
+}
+
+message AvailableSnapsResp {
+  repeated string revisions = 1;
+}

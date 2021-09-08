@@ -2,9 +2,14 @@ package snapshotting
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
+	"github.com/ease-lab/vhive/proto"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"math"
+	"net"
 	"os"
 	"sync"
 )
@@ -24,6 +29,8 @@ type SnapshotManager struct {
 	clock       int64 	// When container last used. Increased to priority terminated container on termination
 	capacityMib int64
 	usedMib     int64
+
+	snapsPort   string // Expose available snapshots at this port
 }
 
 func NewSnapshotManager(baseFolder string, capacityMib int64) *SnapshotManager {
@@ -34,6 +41,7 @@ func NewSnapshotManager(baseFolder string, capacityMib int64) *SnapshotManager {
 	manager.clock = 0
 	manager.capacityMib = capacityMib
 	manager.usedMib = 0
+	manager.snapsPort = ":50047"
 
 	// Clean & init basefolder
 	os.RemoveAll(manager.baseFolder)
@@ -194,6 +202,32 @@ func (mgr *SnapshotManager) freeSpace(neededMib int64) (*[]string, error) {
 	}
 
 	return &removeContainerSnaps, nil
+}
+
+func (mgr *SnapshotManager) ListenAvailableSnaps() {
+	lis, err := net.Listen("tcp", mgr.snapsPort)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	proto.RegisterSnapStatsReporterServer(s, mgr)
+
+	log.Println("Listening on port" + mgr.snapsPort)
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func (mgr *SnapshotManager) GetAvailableSnaps(_ context.Context, _ *proto.AvailableSnapsReq) (*proto.AvailableSnapsResp, error) {
+	revisionIds := make([]string, 0, len(mgr.snapshots))
+	for revisionId := range mgr.snapshots {
+		revisionIds = append(revisionIds, revisionId)
+	}
+
+	response := &proto.AvailableSnapsResp{
+		Revisions: revisionIds,
+	}
+	return response, nil
 }
 
 

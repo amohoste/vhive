@@ -70,7 +70,9 @@ require (
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6 // indirect
-	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887
+	golang.org/x/net v0.0.0-20210907225631-ff17edfbf26d // indirect
+	golang.org/x/sys v0.0.0-20210906170528-6f6e22806c34
+	golang.org/x/text v0.3.7 // indirect
 	gonum.org/v1/gonum v0.9.0
 	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
 	google.golang.org/grpc v1.34.0

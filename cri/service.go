@@ -90,6 +90,8 @@ func NewService(orch *ctriface.Orchestrator, snapsCapacityMiB int64, isSparseSna
 		podVMConfigs:       make(map[string]*VMConfig),
 	}
 
+	go cs.Coordinator.snapshotManager.ListenAvailableSnaps()
+
 	return cs, nil
 }
 
