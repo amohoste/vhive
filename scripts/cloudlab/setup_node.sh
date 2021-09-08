@@ -28,6 +28,8 @@ SCRIPTS=$ROOT/scripts
 
 STOCK_CONTAINERD=$1
 
+$SCRIPTS/cloudlab/setup_node.sh
+
 $SCRIPTS/utils/disable_auto_updates.sh
 
 source $SCRIPTS/install_go.sh

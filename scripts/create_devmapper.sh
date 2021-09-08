@@ -1,40 +1,23 @@
 #!/bin/bash
 
-sudo mkdir -p /var/lib/firecracker-containerd/snapshotter/devmapper
+sudo mkdir -p /fccd/firecracker-containerd/snapshotter/devmapper
 
-pushd /var/lib/firecracker-containerd/snapshotter/devmapper > /dev/null
-DIR=/var/lib/firecracker-containerd/snapshotter/devmapper
+pushd /fccd/firecracker-containerd/snapshotter/devmapper > /dev/null
+DIR=/fccd/firecracker-containerd/snapshotter/devmapper
 POOL=fc-dev-thinpool
 
-# When executed inside a docker container, this command returns the container ID of the container.
-# on a non container environment, this returns "/".
-CONTAINERID=$(basename $(cat /proc/1/cpuset))
-
-# Docker container ID is 64 characters long.
-if [ 64 -eq ${#CONTAINERID} ]; then
-    POOL="${CONTAINERID}_thinpool"
+# Create thinpool devices
+DATADEV=/dev/VG1/dmdata
+if [[ ! -f "${DATADEV}" ]]; then
+    sudo lvcreate --wipesignatures y -n dmdata --size 100G VG1
 fi
 
-if [[ ! -f "${DIR}/data" ]]; then
-    sudo touch "${DIR}/data"
-    sudo truncate -s 100G "${DIR}/data"
+METADEV=/dev/VG1/dmmeta
+if [[ ! -f "${METADEV}" ]]; then
+    sudo lvcreate --wipesignatures y -n dmmeta --size 2G VG1
 fi
 
-if [[ ! -f "${DIR}/metadata" ]]; then
-    sudo touch "${DIR}/metadata"
-    sudo truncate -s 2G "${DIR}/metadata"
-fi
-
-DATADEV="$(sudo losetup --output NAME --noheadings --associated ${DIR}/data)"
-if [[ -z "${DATADEV}" ]]; then
-    DATADEV="$(sudo losetup --find --show ${DIR}/data)"
-fi
-
-METADEV="$(sudo losetup --output NAME --noheadings --associated ${DIR}/metadata)"
-if [[ -z "${METADEV}" ]]; then
-    METADEV="$(sudo losetup --find --show ${DIR}/metadata)"
-fi
-
+# Create thinpool
 SECTORSIZE=512
 DATASIZE="$(sudo blockdev --getsize64 -q ${DATADEV})"
 LENGTH_SECTORS=$(bc <<< "${DATASIZE}/${SECTORSIZE}")

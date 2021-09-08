@@ -77,7 +77,7 @@ func main() {
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 	isCliMode = flag.Bool("climode", false, "Host net-interface for the VMs to bind to for internet access (get default through route if empty)")
 	poolName := flag.String("poolname", "fc-dev-thinpool", "Device mapper thinpool name")
-	metadataDev := flag.String("metadev", "/dev/loop1", "Device used by devicemapper for metadata storage")
+	metadataDev := flag.String("metadev", "/dev/VG1/dmmeta", "Device used by devicemapper for metadata storage")
 	netPoolSize := flag.Int("netpoolsize", 50, "Amount of network configs to preallocate in a pool")
 
 	// Parse cmd line arguments

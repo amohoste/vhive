@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	containerdAddress      = "/run/firecracker-containerd/containerd.sock" // Containerd client
+	containerdAddress      = "/fccd/run/firecracker-containerd/containerd.sock" // Containerd client
 	containerdTTRPCAddress = containerdAddress + ".ttrpc"				   // Firecracker client
 	namespaceName          = "firecracker-containerd"
 )
