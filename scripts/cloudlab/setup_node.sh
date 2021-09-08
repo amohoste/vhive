@@ -28,7 +28,7 @@ SCRIPTS=$ROOT/scripts
 
 STOCK_CONTAINERD=$1
 
-$SCRIPTS/cloudlab/setup_node.sh
+$SCRIPTS/cloudlab/setup_disk.sh
 
 $SCRIPTS/utils/disable_auto_updates.sh
 
