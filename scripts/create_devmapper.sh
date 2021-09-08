@@ -8,12 +8,12 @@ POOL=fc-dev-thinpool
 
 # Create thinpool devices
 DATADEV=/dev/VG1/dmdata
-if [[ ! -f "${DATADEV}" ]]; then
+if [[ ! -L "${DATADEV}" ]]; then
     sudo lvcreate --wipesignatures y -n dmdata --size 100G VG1
 fi
 
 METADEV=/dev/VG1/dmmeta
-if [[ ! -f "${METADEV}" ]]; then
+if [[ ! -L "${METADEV}" ]]; then
     sudo lvcreate --wipesignatures y -n dmmeta --size 2G VG1
 fi
 
