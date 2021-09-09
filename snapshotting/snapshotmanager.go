@@ -219,10 +219,12 @@ func (mgr *SnapshotManager) ListenAvailableSnaps() {
 }
 
 func (mgr *SnapshotManager) GetAvailableSnaps(_ context.Context, _ *proto.AvailableSnapsReq) (*proto.AvailableSnapsResp, error) {
+	mgr.Lock()
 	revisionIds := make([]string, 0, len(mgr.snapshots))
 	for revisionId := range mgr.snapshots {
 		revisionIds = append(revisionIds, revisionId)
 	}
+	mgr.Unlock()
 
 	response := &proto.AvailableSnapsResp{
 		Revisions: revisionIds,
