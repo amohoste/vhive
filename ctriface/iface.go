@@ -447,6 +447,8 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	}
 	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))
 
+	time.Sleep(1 * time.Second)
+
 	// Fix since VM is not getting resumed after snapshot
 	u := &httpunix.Transport{
 		DialTimeout:           1000 * time.Millisecond,
