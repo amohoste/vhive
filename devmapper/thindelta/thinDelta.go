@@ -72,8 +72,6 @@ func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string, for
 		forkMetric.ReleaseMetaSnap = metrics.ToUS(time.Since(tStart))
 	}()
 
-	time.Sleep(1 * time.Second)
-
 	tStart = time.Now()
 	cmd := exec.Command("sudo", "thin_delta", "-m", thd.metaDataDev, "--snap1", snap1DeviceId, "--snap2", snap2DeviceId)
 	var stdout, stderr bytes.Buffer
