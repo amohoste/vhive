@@ -26,9 +26,7 @@ package ctriface
 
 import (
 	"context"
-	"fmt"
 	"github.com/ease-lab/vhive/snapshotting"
-	"os/exec"
 	"sync"
 	"syscall"
 	"time"
@@ -421,25 +419,16 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	}
 	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))
 
-	time.Sleep(1 * time.Second)
 
-	/*
-	sudo curl --unix-socket /var/lib/firecracker-containerd/shim-base/firecracker-containerd/2/firecracker.sock -i \
-	    -X PATCH 'http://localhost/vm' \
-	    -H 'Accept: application/json' \
-	    -H 'Content-Type: application/json' \
-	    -d '{
-	            "state": "Resumed"
-	    }'
-	 */
 
+/*
 	payload := `{"state":"Resumed"}`
 	socketPath := fmt.Sprintf("/var/lib/firecracker-containerd/shim-base/firecracker-containerd/%s/firecracker.sock", vmID)
 	cmd := exec.Command("sudo", "curl", "--unix-socket", socketPath, "-i", "-X", "PATCH", "http://localhost/vm", "-H", "Accept: application/json", "-H", "Content-Type: application/json", "-d", payload)
 	err = cmd.Run()
 	if err != nil {
 		return err
-	}
+	}*/
 
 	return nil
 }
