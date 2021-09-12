@@ -25,8 +25,14 @@
 package ctriface
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/ease-lab/vhive/snapshotting"
+	"github.com/tv42/httpunix"
+	"net/http"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -355,6 +361,27 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string, bootMetric *me
 	return nil
 }
 
+func formResumeReq() *http.Request {
+	var req *http.Request
+
+	data := map[string]string{
+		"state": "Resumed",
+	}
+	json, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+
+	req, err = http.NewRequest("PATCH", "http+unix://firecracker/vm", bytes.NewBuffer(json))
+	if err != nil {
+		return nil
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
+
+	return req
+}
+
 // CreateSnapshot Creates a snapshot of a VM
 func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric, forkMetric *metrics.ForkMetric) error {
 	var (
@@ -412,12 +439,34 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	snapMetric.SerializeSnapInfo = metrics.ToUS(time.Since(tStart))
 
 	// 5. Resume
-	tStart = time.Now()
+	/*tStart = time.Now()
 	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
 		log.Printf("failed to resume the VM")
 		return  err
 	}
-	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))
+	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))*/
+
+	// Fix since VM is not getting resumed after snapshot
+	u := &httpunix.Transport{
+		DialTimeout:           1000 * time.Millisecond,
+		RequestTimeout:        60 * time.Second,
+		ResponseHeaderTimeout: 60 * time.Second,
+	}
+	u.RegisterLocation("firecracker", fmt.Sprintf("/var/lib/firecracker-containerd/shim-base/firecracker-containerd/%s/firecracker.sock", vmID))
+	t := &http.Transport{}
+	t.RegisterProtocol(httpunix.Scheme, u)
+
+	var client = http.Client{
+		Transport: t,
+	}
+	resp, err := client.Do(formResumeReq())
+	if err != nil {
+		return errors.Wrapf(err, "Failed to send resume VM request")
+	}
+
+	if !strings.Contains(resp.Status, "204") {
+		return errors.New(fmt.Sprintf("Failed to resume VM, status %s", resp.Status))
+	}
 
 	return nil
 }
