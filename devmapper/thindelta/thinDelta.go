@@ -62,7 +62,7 @@ func (thd *ThinDelta) getBlocksRawDelta(snap1DeviceId, snap2DeviceId string, for
 	tStart = time.Now()
 	err := thd.reserveMetadataSnap()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	forkMetric.ReserveMetaSnap = metrics.ToUS(time.Since(tStart))
 
