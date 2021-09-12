@@ -382,6 +382,7 @@ func formResumeReq() *http.Request {
 	return req
 }
 
+
 // CreateSnapshot Creates a snapshot of a VM
 func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *snapshotting.Snapshot, snapMetric *metrics.SnapMetric, forkMetric *metrics.ForkMetric) error {
 	var (
@@ -439,12 +440,12 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	snapMetric.SerializeSnapInfo = metrics.ToUS(time.Since(tStart))
 
 	// 5. Resume
-	/*tStart = time.Now()
+	tStart = time.Now()
 	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
 		log.Printf("failed to resume the VM")
 		return  err
 	}
-	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))*/
+	snapMetric.FcResume = metrics.ToUS(time.Since(tStart))
 
 	// Fix since VM is not getting resumed after snapshot
 	u := &httpunix.Transport{
