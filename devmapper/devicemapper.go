@@ -254,16 +254,24 @@ func (dmpr *DeviceMapper) ForkContainerSnap(ctx context.Context, oldContainerSna
 
 // TODO: only do when creating patch file for remote snapshot
 // CreatePatch creates a patch file storing the difference between an image and the container filesystem
-func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerSnapKey string, image containerd.Image) error {
+func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerSnapKey string, image containerd.Image, forkMetric *metrics.ForkMetric) error {
+	var (
+		tStart               time.Time
+	)
+
+	tStart = time.Now()
 	containerSnap, err := dmpr.GetDeviceSnapshot(ctx, containerSnapKey)
 	if err != nil {
 		return err
 	}
+	forkMetric.GetOldDeviceSnap = metrics.ToUS(time.Since(tStart))
 
+	tStart = time.Now()
 	imageSnap, err := dmpr.GetImageSnapshot(ctx, image)
 	if err != nil {
 		return err
 	}
+	forkMetric.GetImageSnap = metrics.ToUS(time.Since(tStart))
 
 	// 1. Activate image snapshot
 	err = imageSnap.Activate()
@@ -273,6 +281,7 @@ func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerS
 	defer imageSnap.Deactivate()
 
 	// 2. Mount original and snapshot image
+	tStart = time.Now()
 	imageMountPath, err := imageSnap.Mount(true)
 	if err != nil {
 		return err
@@ -286,7 +295,10 @@ func (dmpr *DeviceMapper) CreatePatch(ctx context.Context, patchPath, containerS
 	defer containerSnap.UnMount()
 
 	// 3. Save changes to file
-	return extractPatch(imageMountPath, containerMountPath, patchPath)
+	result := extractPatch(imageMountPath, containerMountPath, patchPath)
+	forkMetric.ReadBlocks = metrics.ToUS(time.Since(tStart))
+
+	return result
 }
 
 func applyPatch(containerMountPath, patchPath string) error {

@@ -391,7 +391,7 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 
 	// 3. Backup disk state difference TODO: do this for remote snapshots
 	tStart = time.Now()
-	if err := o.devMapper.CreatePatch(ctx, snap.GetPatchFilePath(), vm.ContainerSnapKey, *vm.Image); err != nil {
+	if err := o.devMapper.CreatePatch(ctx, snap.GetPatchFilePath(), vm.ContainerSnapKey, *vm.Image, forkMetric); err != nil {
 		logger.WithError(err).Error("failed to create container patch file")
 		return err
 	}
