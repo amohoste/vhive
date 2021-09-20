@@ -389,19 +389,19 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string, snap *sn
 	}
 	snapMetric.FcCreateSnapshot = metrics.ToUS(time.Since(tStart))
 
-	/*// 3. Backup disk state difference TODO: do this for remote snapshots
+	// 3. Backup disk state difference TODO: do this for remote snapshots
 	tStart = time.Now()
 	if err := o.devMapper.CreatePatch(ctx, snap.GetPatchFilePath(), vm.ContainerSnapKey, *vm.Image); err != nil {
 		logger.WithError(err).Error("failed to create container patch file")
 		return err
 	}
-	snapMetric.CreatePatch = metrics.ToUS(time.Since(tStart))*/
-	tStart = time.Now()
+	snapMetric.CreatePatch = metrics.ToUS(time.Since(tStart))
+	/*tStart = time.Now()
 	if err := o.devMapper.ForkContainerSnap(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName(), *vm.Image, forkMetric); err != nil {
 		logger.WithError(err).Error("failed to fork container snap")
 		return err
 	}
-	snapMetric.ForkContainerSnap = metrics.ToUS(time.Since(tStart))
+	snapMetric.ForkContainerSnap = metrics.ToUS(time.Since(tStart))*/
 
 	// 4. Serialize snapshot info
 	tStart = time.Now()
@@ -471,7 +471,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 	bootMetric.GetImage = metrics.ToUS(time.Since(tStart))
 
 	// 3. Create snapshot for container to run
-	tStart = time.Now()
+	/*tStart = time.Now()
 	if err := o.devMapper.CreateDeviceSnapshot(ctx, vm.ContainerSnapKey, snap.GetContainerSnapName()); err != nil {
 		return nil, errors.Wrapf(err, "creating container snapshot")
 	}
@@ -480,9 +480,9 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 	if err != nil {
 		return nil, errors.Wrapf(err, "previously created container device does not exist")
 	}
-	bootMetric.CreateDeviceSnap = metrics.ToUS(time.Since(tStart))
+	bootMetric.CreateDeviceSnap = metrics.ToUS(time.Since(tStart))*/
 
-	/*// 3. Create snapshot for container to run TODO: do for remote. For local have snapshot with patch included already
+	// 3. Create snapshot for container to run TODO: do for remote. For local have snapshot with patch included already
 	tStart = time.Now() // TODO: remove revision container snap upon snapshot delete
 	if err := o.devMapper.CreateDeviceSnapshotFromImage(ctx, vm.ContainerSnapKey, *vm.Image); err != nil {
 		return nil, errors.Wrapf(err, "creating container snapshot")
@@ -500,7 +500,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, snap *snap
 	if err := o.devMapper.RestorePatch(ctx, vm.ContainerSnapKey, snap.GetPatchFilePath()); err != nil {
 		return nil, errors.Wrapf(err, "unpacking patch into container snapshot")
 	}
-	bootMetric.RestorePatch = metrics.ToUS(time.Since(tStart))*/
+	bootMetric.RestorePatch = metrics.ToUS(time.Since(tStart))
 
 	// 5. Load VM from snapshot
 	req := &proto.LoadSnapshotRequest{
