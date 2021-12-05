@@ -24,6 +24,7 @@ package ctriface
 
 import (
 	"context"
+	"github.com/ease-lab/vhive/metrics"
 	"os"
 	"testing"
 	"time"
@@ -55,7 +56,8 @@ func TestStartSnapStop(t *testing.T) {
 
 	vmID := "2"
 
-	_, _, err := orch.StartVM(ctx, vmID, testImageName)
+	bootMetric := metrics.NewBootMetric(testImageName)
+	_, err := orch.StartVM(ctx, vmID, testImageName, bootMetric)
 	require.NoError(t, err, "Failed to start VM")
 
 	err = orch.PauseVM(ctx, vmID)
@@ -67,10 +69,10 @@ func TestStartSnapStop(t *testing.T) {
 	err = orch.Offload(ctx, vmID)
 	require.NoError(t, err, "Failed to offload VM")
 
-	_, err = orch.LoadSnapshot(ctx, vmID)
+	err = orch.LoadSnapshot(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to load snapshot of VM")
 
-	_, err = orch.ResumeVM(ctx, vmID)
+	err = orch.ResumeVM(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to resume VM")
 
 	err = orch.StopSingleVM(ctx, vmID)

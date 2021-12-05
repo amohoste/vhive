@@ -25,15 +25,15 @@ package ctriface
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"net"
-	"net/url"
-	"net/http"
 
 	log "github.com/sirupsen/logrus"
 
@@ -70,20 +70,21 @@ const (
 )
 
 // StartVM Boots a VM if it does not exist
-func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *StartVMResponse, _ *metrics.Metric, retErr error) {
+func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string, bootMetric *metrics.BootMetric) (_ *StartVMResponse, retErr error) {
 	var (
-		startVMMetric *metrics.Metric = metrics.NewMetric()
 		tStart        time.Time
 	)
 
 	logger := log.WithFields(log.Fields{"vmID": vmID, "image": imageName})
 	logger.Debug("StartVM: Received StartVM")
 
+	tStart = time.Now()
 	vm, err := o.vmPool.Allocate(vmID, o.hostIface)
 	if err != nil {
 		logger.Error("failed to allocate VM in VM pool")
-		return nil, nil, err
+		return nil, err
 	}
+	bootMetric.AllocateVM = metrics.ToUS(time.Since(tStart))
 
 	defer func() {
 		// Free the VM from the pool if function returns error
@@ -97,16 +98,16 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 	ctx = namespaces.WithNamespace(ctx, namespaceName)
 	tStart = time.Now()
 	if vm.Image, err = o.getImage(ctx, imageName); err != nil {
-		return nil, nil, errors.Wrapf(err, "Failed to get/pull image")
+		return nil, errors.Wrapf(err, "Failed to get/pull image")
 	}
-	startVMMetric.MetricMap[metrics.GetImage] = metrics.ToUS(time.Since(tStart))
+	bootMetric.GetImage = metrics.ToUS(time.Since(tStart))
 
 	tStart = time.Now()
 	conf := o.getVMConfig(vm)
 	resp, err := o.fcClient.CreateVM(ctx, conf)
-	startVMMetric.MetricMap[metrics.FcCreateVM] = metrics.ToUS(time.Since(tStart))
+	bootMetric.FcCreateVM = metrics.ToUS(time.Since(tStart))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create the microVM in firecracker-containerd")
+		return nil,  errors.Wrap(err, "failed to create the microVM in firecracker-containerd")
 	}
 
 	defer func() {
@@ -131,10 +132,10 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 		),
 		containerd.WithRuntime("aws.firecracker", nil),
 	)
-	startVMMetric.MetricMap[metrics.NewContainer] = metrics.ToUS(time.Since(tStart))
+	bootMetric.NewContainer = metrics.ToUS(time.Since(tStart))
 	vm.Container = &container
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create a container")
+		return nil, errors.Wrap(err, "failed to create a container")
 	}
 
 	defer func() {
@@ -148,10 +149,10 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 	logger.Debug("StartVM: Creating a new task")
 	tStart = time.Now()
 	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
-	startVMMetric.MetricMap[metrics.NewTask] = metrics.ToUS(time.Since(tStart))
+	bootMetric.NewTask = metrics.ToUS(time.Since(tStart))
 	vm.Task = &task
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to create a task")
+		return nil, errors.Wrapf(err, "failed to create a task")
 	}
 
 	defer func() {
@@ -165,10 +166,10 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 	logger.Debug("StartVM: Waiting for the task to get ready")
 	tStart = time.Now()
 	ch, err := task.Wait(ctx)
-	startVMMetric.MetricMap[metrics.TaskWait] = metrics.ToUS(time.Since(tStart))
+	bootMetric.TaskWait = metrics.ToUS(time.Since(tStart))
 	vm.TaskCh = ch
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to wait for a task")
+		return nil, errors.Wrap(err, "failed to wait for a task")
 	}
 
 	defer func() {
@@ -182,9 +183,9 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 	logger.Debug("StartVM: Starting the task")
 	tStart = time.Now()
 	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to start a task")
+		return nil, errors.Wrap(err, "failed to start a task")
 	}
-	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
+	bootMetric.TaskStart = metrics.ToUS(time.Since(tStart))
 
 	defer func() {
 		if retErr != nil {
@@ -196,7 +197,7 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 
 	if err := os.MkdirAll(o.getVMBaseDir(vmID), 0777); err != nil {
 		logger.Error("Failed to create VM base dir")
-		return nil, nil, err
+		return nil, err
 	}
 	if o.GetUPFEnabled() {
 		logger.Debug("Registering VM with the memory manager")
@@ -212,14 +213,14 @@ func (o *Orchestrator) StartVM(ctx context.Context, vmID, imageName string) (_ *
 			InstanceSockAddr: resp.UPFSockPath,
 		}
 		if err := o.memoryManager.RegisterVM(stateCfg); err != nil {
-			return nil, nil, errors.Wrap(err, "failed to register VM with memory manager")
+			return nil, errors.Wrap(err, "failed to register VM with memory manager")
 			// NOTE (Plamen): Potentially need a defer(DeregisteVM) here if RegisterVM is not last to execute
 		}
 	}
 
 	logger.Debug("Successfully started a VM")
 
-	return &StartVMResponse{GuestIP: vm.Ni.PrimaryAddress}, startVMMetric, nil
+	return &StartVMResponse{GuestIP: vm.Ni.PrimaryAddress}, nil
 }
 
 // StopSingleVM Shuts down a VM
@@ -432,9 +433,8 @@ func (o *Orchestrator) PauseVM(ctx context.Context, vmID string) error {
 }
 
 // ResumeVM Resumes a VM
-func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string) (*metrics.Metric, error) {
+func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string, bootMetric *metrics.BootMetric) error {
 	var (
-		resumeVMMetric *metrics.Metric = metrics.NewMetric()
 		tStart         time.Time
 	)
 
@@ -446,11 +446,11 @@ func (o *Orchestrator) ResumeVM(ctx context.Context, vmID string) (*metrics.Metr
 	tStart = time.Now()
 	if _, err := o.fcClient.ResumeVM(ctx, &proto.ResumeVMRequest{VMID: vmID}); err != nil {
 		logger.WithError(err).Error("failed to resume the VM")
-		return nil, err
+		return err
 	}
-	resumeVMMetric.MetricMap[metrics.FcResume] = metrics.ToUS(time.Since(tStart))
+	bootMetric.FcResume = metrics.ToUS(time.Since(tStart))
 
-	return resumeVMMetric, nil
+	return nil
 }
 
 // CreateSnapshot Creates a snapshot of a VM
@@ -475,9 +475,8 @@ func (o *Orchestrator) CreateSnapshot(ctx context.Context, vmID string) error {
 }
 
 // LoadSnapshot Loads a snapshot of a VM
-func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string) (*metrics.Metric, error) {
+func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string, bootMetric *metrics.BootMetric) error {
 	var (
-		loadSnapshotMetric   *metrics.Metric = metrics.NewMetric()
 		tStart               time.Time
 		loadErr, activateErr error
 		loadDone             = make(chan int)
@@ -497,7 +496,7 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string) (*metrics.
 
 	if o.GetUPFEnabled() {
 		if err := o.memoryManager.FetchState(vmID); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -519,14 +518,14 @@ func (o *Orchestrator) LoadSnapshot(ctx context.Context, vmID string) (*metrics.
 
 	<-loadDone
 
-	loadSnapshotMetric.MetricMap[metrics.LoadVMM] = metrics.ToUS(time.Since(tStart))
+	bootMetric.FcLoadSnapshot = metrics.ToUS(time.Since(tStart))
 
 	if loadErr != nil || activateErr != nil {
 		multierr := multierror.Of(loadErr, activateErr)
-		return nil, multierr
+		return multierr
 	}
 
-	return loadSnapshotMetric, nil
+	return nil
 }
 
 // Offload Shuts down the VM but leaves shim and other resources running.

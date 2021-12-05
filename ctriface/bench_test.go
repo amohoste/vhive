@@ -66,7 +66,7 @@ func TestBenchmarkStart(t *testing.T) {
 
 	for funcName, imageName := range images {
 		vmIDString := strconv.Itoa(vmID)
-		startMetrics := make([]*metrics.Metric, benchCount)
+		startMetrics := make([]*metrics.BootMetric, benchCount)
 
 		// Pull image
 		_, err := orch.getImage(ctx, imageName)
@@ -75,9 +75,10 @@ func TestBenchmarkStart(t *testing.T) {
 		for i := 0; i < benchCount; i++ {
 			dropPageCache()
 
-			_, metric, err := orch.StartVM(ctx, vmIDString, imageName)
+			bootMetric := metrics.NewBootMetric(imageName)
+			_, err := orch.StartVM(ctx, vmIDString, imageName, bootMetric)
 			require.NoError(t, err, "Failed to start VM")
-			startMetrics[i] = metric
+			startMetrics[i] = bootMetric
 
 			err = orch.StopSingleVM(ctx, vmIDString)
 			require.NoError(t, err, "Failed to stop VM")

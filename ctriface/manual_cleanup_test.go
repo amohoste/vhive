@@ -25,6 +25,7 @@ package ctriface
 import (
 	"context"
 	"fmt"
+	"github.com/ease-lab/vhive/metrics"
 	"os"
 	"sync"
 	"testing"
@@ -63,7 +64,8 @@ func TestSnapLoad(t *testing.T) {
 
 	vmID := "1"
 
-	_, _, err := orch.StartVM(ctx, vmID, testImageName)
+	bootMetric := metrics.NewBootMetric(testImageName)
+	_, err := orch.StartVM(ctx, vmID, testImageName, bootMetric)
 	require.NoError(t, err, "Failed to start VM")
 
 	err = orch.PauseVM(ctx, vmID)
@@ -72,16 +74,16 @@ func TestSnapLoad(t *testing.T) {
 	err = orch.CreateSnapshot(ctx, vmID)
 	require.NoError(t, err, "Failed to create snapshot of VM")
 
-	_, err = orch.ResumeVM(ctx, vmID)
+	err = orch.ResumeVM(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to resume VM")
 
 	err = orch.Offload(ctx, vmID)
 	require.NoError(t, err, "Failed to offload VM")
 
-	_, err = orch.LoadSnapshot(ctx, vmID)
+	err = orch.LoadSnapshot(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to load snapshot of VM")
 
-	_, err = orch.ResumeVM(ctx, vmID)
+	err = orch.ResumeVM(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to resume VM")
 
 	orch.Cleanup()
@@ -113,7 +115,8 @@ func TestSnapLoadMultiple(t *testing.T) {
 
 	vmID := "3"
 
-	_, _, err := orch.StartVM(ctx, vmID, testImageName)
+	bootMetric := metrics.NewBootMetric(testImageName)
+	_, err := orch.StartVM(ctx, vmID, testImageName, bootMetric)
 	require.NoError(t, err, "Failed to start VM")
 
 	err = orch.PauseVM(ctx, vmID)
@@ -125,19 +128,19 @@ func TestSnapLoadMultiple(t *testing.T) {
 	err = orch.Offload(ctx, vmID)
 	require.NoError(t, err, "Failed to offload VM")
 
-	_, err = orch.LoadSnapshot(ctx, vmID)
+	err = orch.LoadSnapshot(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to load snapshot of VM")
 
-	_, err = orch.ResumeVM(ctx, vmID)
+	err = orch.ResumeVM(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to resume VM")
 
 	err = orch.Offload(ctx, vmID)
 	require.NoError(t, err, "Failed to offload VM")
 
-	_, err = orch.LoadSnapshot(ctx, vmID)
+	err = orch.LoadSnapshot(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to load snapshot of VM")
 
-	_, err = orch.ResumeVM(ctx, vmID)
+	err = orch.ResumeVM(ctx, vmID, bootMetric)
 	require.NoError(t, err, "Failed to resume VM, ")
 
 	err = orch.Offload(ctx, vmID)
@@ -184,7 +187,8 @@ func TestParallelSnapLoad(t *testing.T) {
 			defer vmGroup.Done()
 			vmID := fmt.Sprintf("%d", i+vmIDBase)
 
-			_, _, err := orch.StartVM(ctx, vmID, testImageName)
+			bootMetric := metrics.NewBootMetric(testImageName)
+			_, err := orch.StartVM(ctx, vmID, testImageName, bootMetric)
 			require.NoError(t, err, "Failed to start VM, "+vmID)
 
 			err = orch.PauseVM(ctx, vmID)
@@ -196,10 +200,10 @@ func TestParallelSnapLoad(t *testing.T) {
 			err = orch.Offload(ctx, vmID)
 			require.NoError(t, err, "Failed to offload VM, "+vmID)
 
-			_, err = orch.LoadSnapshot(ctx, vmID)
+			err = orch.LoadSnapshot(ctx, vmID, bootMetric)
 			require.NoError(t, err, "Failed to load snapshot of VM, "+vmID)
 
-			_, err = orch.ResumeVM(ctx, vmID)
+			err = orch.ResumeVM(ctx, vmID, bootMetric)
 			require.NoError(t, err, "Failed to resume VM, "+vmID)
 		}(i)
 	}
@@ -246,7 +250,8 @@ func TestParallelPhasedSnapLoad(t *testing.T) {
 			go func(i int) {
 				defer vmGroup.Done()
 				vmID := fmt.Sprintf("%d", i+vmIDBase)
-				_, _, err := orch.StartVM(ctx, vmID, testImageName)
+				bootMetric := metrics.NewBootMetric(testImageName)
+				_, err := orch.StartVM(ctx, vmID, testImageName, bootMetric)
 				require.NoError(t, err, "Failed to start VM, "+vmID)
 			}(i)
 		}
@@ -302,7 +307,8 @@ func TestParallelPhasedSnapLoad(t *testing.T) {
 			go func(i int) {
 				defer vmGroup.Done()
 				vmID := fmt.Sprintf("%d", i+vmIDBase)
-				_, err := orch.LoadSnapshot(ctx, vmID)
+				bootMetric := metrics.NewBootMetric("")
+				err := orch.LoadSnapshot(ctx, vmID, bootMetric)
 				require.NoError(t, err, "Failed to load snapshot of VM, "+vmID)
 			}(i)
 		}
@@ -316,7 +322,8 @@ func TestParallelPhasedSnapLoad(t *testing.T) {
 			go func(i int) {
 				defer vmGroup.Done()
 				vmID := fmt.Sprintf("%d", i+vmIDBase)
-				_, err := orch.ResumeVM(ctx, vmID)
+				bootMetric := metrics.NewBootMetric("")
+				err := orch.ResumeVM(ctx, vmID, bootMetric)
 				require.NoError(t, err, "Failed to resume VM, "+vmID)
 			}(i)
 		}

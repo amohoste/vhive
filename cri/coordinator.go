@@ -25,6 +25,7 @@ package cri
 import (
 	"context"
 	"errors"
+	"github.com/ease-lab/vhive/metrics"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -38,11 +39,12 @@ type coordinator struct {
 	sync.Mutex
 	orch   *ctriface.Orchestrator
 	nextID uint64
+	isMetricMode bool
 
 	activeInstances     map[string]*funcInstance
 	idleInstances       map[string][]*funcInstance
 	withoutOrchestrator bool
-}
+	metricsManager      *metrics.MetricsManager}
 
 type coordinatorOption func(*coordinator)
 
@@ -53,7 +55,14 @@ func withoutOrchestrator() coordinatorOption {
 	}
 }
 
-func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coordinator {
+// withoutOrchestrator is used for testing the coordinator without calling the orchestrator
+func withMetricMode() coordinatorOption {
+	return func(c *coordinator) {
+		c.isMetricMode = true
+	}
+}
+
+func newCoordinator(orch *ctriface.Orchestrator, metricsDir string, opts ...coordinatorOption) *coordinator {
 	c := &coordinator{
 		activeInstances: make(map[string]*funcInstance),
 		idleInstances:   make(map[string][]*funcInstance),
@@ -62,6 +71,10 @@ func newCoordinator(orch *ctriface.Orchestrator, opts ...coordinatorOption) *coo
 
 	for _, opt := range opts {
 		opt(c)
+	}
+
+	if  c.isMetricMode {
+		c.metricsManager =  metrics.NewMetricsManager(metricsDir)
 	}
 
 	return c
@@ -166,11 +179,14 @@ func (c *coordinator) orchStartVM(ctx context.Context, image string) (*funcInsta
 		err  error
 	)
 
+	// TODO: use revision ID rather than image name as identifier
+	bootMetric := metrics.NewBootMetric(image)
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*40)
 	defer cancel()
 
 	if !c.withoutOrchestrator {
-		resp, _, err = c.orch.StartVM(ctxTimeout, vmID, image)
+		resp, err = c.orch.StartVM(ctxTimeout, vmID, image, bootMetric)
 		if err != nil {
 			logger.WithError(err).Error("coordinator failed to start VM")
 		}
@@ -178,6 +194,13 @@ func (c *coordinator) orchStartVM(ctx context.Context, image string) (*funcInsta
 
 	fi := newFuncInstance(vmID, image, resp)
 	logger.Debug("successfully created fresh instance")
+
+	if c.isMetricMode { // TODO
+		bootMetric.SnapBooted = false
+		bootMetric.Failed = false
+		go c.metricsManager.AddBootMetric(bootMetric)
+	}
+
 	return fi, err
 }
 
@@ -187,14 +210,22 @@ func (c *coordinator) orchLoadInstance(ctx context.Context, fi *funcInstance) er
 	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	if _, err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID); err != nil {
+	bootMetric := metrics.NewBootMetric(fi.image)
+
+	if err := c.orch.LoadSnapshot(ctxTimeout, fi.vmID, bootMetric); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
 	}
 
-	if _, err := c.orch.ResumeVM(ctxTimeout, fi.vmID); err != nil {
+	if err := c.orch.ResumeVM(ctxTimeout, fi.vmID, bootMetric); err != nil {
 		fi.logger.WithError(err).Error("failed to load VM")
 		return err
+	}
+
+	if c.isMetricMode {
+		bootMetric.SnapBooted = true
+		bootMetric.Failed = false
+		go c.metricsManager.AddBootMetric(bootMetric)
 	}
 
 	fi.logger.Debug("successfully loaded idle instance")

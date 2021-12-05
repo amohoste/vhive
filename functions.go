@@ -354,9 +354,10 @@ func (f *Function) AddInstance() *metrics.Metric {
 	defer cancel()
 
 	if f.isSnapshotReady {
-		metr = f.LoadInstance()
+		_ = f.LoadInstance()
 	} else {
-		resp, _, err := orch.StartVM(ctx, f.getVMID(), f.imageName)
+		bootMetric := metrics.NewBootMetric(testImageName)
+		resp, err := orch.StartVM(ctx, f.getVMID(), f.imageName, bootMetric)
 		f.guestIP = resp.GuestIP
 		if err != nil {
 			log.Panic(err)
@@ -456,7 +457,8 @@ func (f *Function) CreateInstanceSnapshot() {
 		log.Panic(err)
 	}
 
-	_, err = orch.ResumeVM(ctx, f.vmID)
+	bootMetric := metrics.NewBootMetric("")
+	err = orch.ResumeVM(ctx, f.vmID, bootMetric)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -480,7 +482,7 @@ func (f *Function) OffloadInstance() {
 
 // LoadInstance Loads a new instance of the function from its snapshot and resumes it
 // The tap, the shim and the vmID remain the same
-func (f *Function) LoadInstance() *metrics.Metric {
+func (f *Function) LoadInstance() *metrics.BootMetric {
 	logger := log.WithFields(log.Fields{"fID": f.fID})
 
 	logger.Debug("Loading instance")
@@ -488,21 +490,18 @@ func (f *Function) LoadInstance() *metrics.Metric {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	loadMetr, err := orch.LoadSnapshot(ctx, f.vmID)
+	bootMetric := metrics.NewBootMetric("")
+	err := orch.LoadSnapshot(ctx, f.vmID, bootMetric)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	resumeMetr, err := orch.ResumeVM(ctx, f.vmID)
+	err = orch.ResumeVM(ctx, f.vmID, bootMetric)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	for k, v := range resumeMetr.MetricMap {
-		loadMetr.MetricMap[k] = v
-	}
-
-	return loadMetr
+	return bootMetric
 }
 
 // GetStatServed Returns the served counter value

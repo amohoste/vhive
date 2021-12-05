@@ -40,28 +40,12 @@ const (
 	// ConnectFuncClient Time it takes to reconnect function client
 	ConnectFuncClient = "ConnectFuncClient"
 
-	// LoadVMM Name of LoadVMM metric
-	LoadVMM = "LoadVMM"
-
 	// AddInstance Time to add instance - load snap or start vm
 	AddInstance = "AddInstance"
 	// FuncInvocation Time to get response from function
 	FuncInvocation = "FuncInvocation"
 	// RetireOld Time to offload/stop instance if threshold exceeded
 	RetireOld = "RetireOld"
-
-	// GetImage Time to pull docker image
-	GetImage = "GetImage"
-	// FcCreateVM Time to create VM
-	FcCreateVM = "FcCreateVM"
-	// NewContainer Time to create new container
-	NewContainer = "NewContainer"
-	// NewTask Time to create new task
-	NewTask = "NewTask"
-	// TaskWait Time to wait for task to be ready
-	TaskWait = "TaskWait"
-	// TaskStart Time to start task
-	TaskStart = "TaskStart"
 )
 
 // Metric A general metric
@@ -87,22 +71,9 @@ func (m *Metric) Total() float64 {
 	return sum
 }
 
-// PrintTotal Prints the total time
-func (m *Metric) PrintTotal() {
-	fmt.Printf("Total: %.1f us\n", m.Total())
-}
-
-// PrintAll Prints a breakdown of the time
-func (m *Metric) PrintAll() {
-	for k, v := range m.MetricMap {
-		fmt.Printf("%s:\t%.1f\n", k, v)
-	}
-	fmt.Printf("Total\t%.1f\n", m.Total())
-}
-
 // PrintMeanStd prints the mean and standard
 // deviation of each component of Metric
-func PrintMeanStd(resultsPath, funcName string, metricsList ...*Metric) error {
+func PrintMeanStd(resultsPath, funcName string, metricsList ...*BootMetric) error {
 	var (
 		mean, std   float64
 		f           *os.File
@@ -118,7 +89,7 @@ func PrintMeanStd(resultsPath, funcName string, metricsList ...*Metric) error {
 		return nil
 	}
 
-	for k := range metricsList[0].MetricMap {
+	for k := range metricsList[0].GetMetricMap() {
 		keys = append(keys, k)
 		agg[k] = make([]float64, 0, len(metricsList))
 	}
@@ -132,7 +103,7 @@ func PrintMeanStd(resultsPath, funcName string, metricsList ...*Metric) error {
 	for _, m := range metricsList {
 		totals = append(totals, m.Total())
 
-		for k, v := range m.MetricMap {
+		for k, v := range m.GetMetricMap() {
 			agg[k] = append(agg[k], v)
 		}
 	}

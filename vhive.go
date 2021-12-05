@@ -61,6 +61,7 @@ var (
 	pinnedFuncNum      *int
 	criSock            *string
 	hostIface          *string
+	metricsDir         *string
 )
 
 func main() {
@@ -80,6 +81,7 @@ func main() {
 	isLazyMode = flag.Bool("lazy", false, "Enable lazy serving mode when UPFs are enabled")
 	criSock = flag.String("criSock", "/etc/firecracker-containerd/fccd-cri.sock", "Socket address for CRI service")
 	hostIface = flag.String("hostIface", "", "Host net-interface for the VMs to bind to for internet access")
+	metricsDir = flag.String("metricsDir", "", "Directory to store latency breakdown metrics")
 
 	flag.Parse()
 
@@ -90,6 +92,11 @@ func main() {
 
 	if !*isUPFEnabled && *isLazyMode {
 		log.Error("Lazy page fault serving mode is not supported without user-level page faults")
+		return
+	}
+
+	if *isMetricsMode && *metricsDir == "" {
+		log.Error("Please specify a metrics directory when enabling metrics mode.")
 		return
 	}
 
@@ -152,7 +159,7 @@ func criServe() {
 
 	s := grpc.NewServer()
 
-	criService, err := fccdcri.NewService(orch)
+	criService, err := fccdcri.NewService(orch, *metricsDir)
 	if err != nil {
 		log.Fatalf("failed to create CRI service %v", err)
 	}

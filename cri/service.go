@@ -65,7 +65,7 @@ type VMConfig struct {
 }
 
 // NewService initializes the host orchestration state.
-func NewService(orch *ctriface.Orchestrator) (*Service, error) {
+func NewService(orch *ctriface.Orchestrator, metricsDir string) (*Service, error) {
 	if orch == nil {
 		return nil, errors.New("orch must be non nil")
 	}
@@ -86,7 +86,7 @@ func NewService(orch *ctriface.Orchestrator) (*Service, error) {
 		orch:               orch,
 		stockRuntimeClient: stockRuntimeClient,
 		stockImageClient:   stockImageClient,
-		coordinator:        newCoordinator(orch),
+		coordinator:        newCoordinator(orch, metricsDir, withMetricMode()),
 		podVMConfigs:       make(map[string]*VMConfig),
 	}
 

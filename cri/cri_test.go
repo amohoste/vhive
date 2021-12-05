@@ -46,7 +46,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	coord = newCoordinator(nil, withoutOrchestrator())
+	coord = newCoordinator(nil, "", withoutOrchestrator())
 
 	flag.Parse()
 
