@@ -888,127 +888,127 @@ func (o *Orchestrator) RemoteLoadSnapshot(
 }
 
 // RemoteLoadSnapshot Loads a snapshot of a VM from remote storage
-func (o *Orchestrator) RemoteCreateContainerSnapshot(
-	ctx context.Context,
-	vmID string,
-	image string,
-	filePathPatch string,
-	filePathSnap string,
-	filePathMem string) (_ *StartVMResponse, _ *metrics.Metric, retErr error) {
-
-	// 4. Create container
-
-	containerId := vmID
-	if o.isFullLocal {
-		containerId = vm.ContainerSnapKey
-	}
-
-	container, err := o.client.NewContainer(
-		ctx,
-		containerId,
-		containerd.WithSnapshotter(o.snapshotter),
-		containerd.WithNewSnapshot(containerId, *vm.Image),
-		containerd.WithNewSpec(
-			oci.WithImageConfig(*vm.Image),
-			firecrackeroci.WithVMID(vmID),
-			firecrackeroci.WithVMNetwork,
-		),
-		containerd.WithRuntime("aws.firecracker", nil),
-	)
-
-	vm.Container = &container
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create a container")
-	}
-
-	defer func() {
-		if retErr != nil {
-			if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-				logger.WithError(err).Errorf("failed to delete container after failure")
-			}
-		}
-	}()
-
-	// 5. Turn container into runnable process
-	iologger := NewWorkloadIoWriter(vmID)
-	o.workloadIo.Store(vmID, &iologger)
-	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(os.Stdin, iologger, iologger)))
-	vm.Task = &task
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to create a task")
-	}
-
-	defer func() {
-		if retErr != nil {
-			if _, err := task.Delete(ctx); err != nil {
-				logger.WithError(err).Errorf("failed to delete task after failure")
-			}
-		}
-	}()
-
-	// 6. Wait for task to get ready
-	logger.Debug("StartVM: Waiting for the task to get ready")
-	tStart = time.Now()
-	ch, err := task.Wait(ctx)
-	startVMMetric.MetricMap[metrics.TaskWait] = metrics.ToUS(time.Since(tStart))
-	vm.TaskCh = ch
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to wait for a task")
-	}
-
-	defer func() {
-		if retErr != nil {
-			if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
-				logger.WithError(err).Errorf("failed to kill task after failure")
-			}
-		}
-	}()
-
-	// 7. Start process inside container
-	logger.Debug("StartVM: Starting the task")
-	tStart = time.Now()
-	if err := task.Start(ctx); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to start a task")
-	}
-	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
-
-	defer func() {
-		if retErr != nil {
-			if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
-				logger.WithError(err).Errorf("failed to kill task after failure")
-			}
-		}
-	}()
-
-	if !o.isFullLocal {
-		if err := os.MkdirAll(o.getVMBaseDir(vmID), 0777); err != nil {
-			logger.Error("Failed to create VM base dir")
-			return nil, nil, err
-		}
-		if o.GetUPFEnabled() {
-			logger.Debug("Registering VM with the memory manager")
-
-			stateCfg := manager.SnapshotStateCfg{
-				VMID:             vmID,
-				GuestMemPath:     o.getMemoryFile(vmID),
-				BaseDir:          o.getVMBaseDir(vmID),
-				GuestMemSize:     int(conf.MachineCfg.MemSizeMib) * 1024 * 1024,
-				IsLazyMode:       o.isLazyMode,
-				VMMStatePath:     o.getSnapshotFile(vmID),
-				WorkingSetPath:   o.getWorkingSetFile(vmID),
-				InstanceSockAddr: resp.UPFSockPath,
-			}
-			if err := o.memoryManager.RegisterVM(stateCfg); err != nil {
-				return nil, nil, errors.Wrap(err, "failed to register VM with memory manager")
-				// NOTE (Plamen): Potentially need a defer(DeregisteVM) here if RegisterVM is not last to execute
-			}
-		}
-	}
-
-	logger.Debug("Successfully started a VM")
-
-	return
-}
+//func (o *Orchestrator) RemoteCreateContainerSnapshot(
+//	ctx context.Context,
+//	vmID string,
+//	image string,
+//	filePathPatch string,
+//	filePathSnap string,
+//	filePathMem string) (_ *StartVMResponse, _ *metrics.Metric, retErr error) {
+//
+//	// 4. Create container
+//
+//	containerId := vmID
+//	if o.isFullLocal {
+//		containerId = vm.ContainerSnapKey
+//	}
+//
+//	container, err := o.client.NewContainer(
+//		ctx,
+//		containerId,
+//		containerd.WithSnapshotter(o.snapshotter),
+//		containerd.WithNewSnapshot(containerId, *vm.Image),
+//		containerd.WithNewSpec(
+//			oci.WithImageConfig(*vm.Image),
+//			firecrackeroci.WithVMID(vmID),
+//			firecrackeroci.WithVMNetwork,
+//		),
+//		containerd.WithRuntime("aws.firecracker", nil),
+//	)
+//
+//	vm.Container = &container
+//	if err != nil {
+//		return nil, nil, errors.Wrap(err, "failed to create a container")
+//	}
+//
+//	defer func() {
+//		if retErr != nil {
+//			if err := container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
+//				logger.WithError(err).Errorf("failed to delete container after failure")
+//			}
+//		}
+//	}()
+//
+//	// 5. Turn container into runnable process
+//	iologger := NewWorkloadIoWriter(vmID)
+//	o.workloadIo.Store(vmID, &iologger)
+//	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStreams(os.Stdin, iologger, iologger)))
+//	vm.Task = &task
+//	if err != nil {
+//		return nil, nil, errors.Wrapf(err, "failed to create a task")
+//	}
+//
+//	defer func() {
+//		if retErr != nil {
+//			if _, err := task.Delete(ctx); err != nil {
+//				logger.WithError(err).Errorf("failed to delete task after failure")
+//			}
+//		}
+//	}()
+//
+//	// 6. Wait for task to get ready
+//	logger.Debug("StartVM: Waiting for the task to get ready")
+//	tStart = time.Now()
+//	ch, err := task.Wait(ctx)
+//	startVMMetric.MetricMap[metrics.TaskWait] = metrics.ToUS(time.Since(tStart))
+//	vm.TaskCh = ch
+//	if err != nil {
+//		return nil, nil, errors.Wrap(err, "failed to wait for a task")
+//	}
+//
+//	defer func() {
+//		if retErr != nil {
+//			if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
+//				logger.WithError(err).Errorf("failed to kill task after failure")
+//			}
+//		}
+//	}()
+//
+//	// 7. Start process inside container
+//	logger.Debug("StartVM: Starting the task")
+//	tStart = time.Now()
+//	if err := task.Start(ctx); err != nil {
+//		return nil, nil, errors.Wrap(err, "failed to start a task")
+//	}
+//	startVMMetric.MetricMap[metrics.TaskStart] = metrics.ToUS(time.Since(tStart))
+//
+//	defer func() {
+//		if retErr != nil {
+//			if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
+//				logger.WithError(err).Errorf("failed to kill task after failure")
+//			}
+//		}
+//	}()
+//
+//	if !o.isFullLocal {
+//		if err := os.MkdirAll(o.getVMBaseDir(vmID), 0777); err != nil {
+//			logger.Error("Failed to create VM base dir")
+//			return nil, nil, err
+//		}
+//		if o.GetUPFEnabled() {
+//			logger.Debug("Registering VM with the memory manager")
+//
+//			stateCfg := manager.SnapshotStateCfg{
+//				VMID:             vmID,
+//				GuestMemPath:     o.getMemoryFile(vmID),
+//				BaseDir:          o.getVMBaseDir(vmID),
+//				GuestMemSize:     int(conf.MachineCfg.MemSizeMib) * 1024 * 1024,
+//				IsLazyMode:       o.isLazyMode,
+//				VMMStatePath:     o.getSnapshotFile(vmID),
+//				WorkingSetPath:   o.getWorkingSetFile(vmID),
+//				InstanceSockAddr: resp.UPFSockPath,
+//			}
+//			if err := o.memoryManager.RegisterVM(stateCfg); err != nil {
+//				return nil, nil, errors.Wrap(err, "failed to register VM with memory manager")
+//				// NOTE (Plamen): Potentially need a defer(DeregisteVM) here if RegisterVM is not last to execute
+//			}
+//		}
+//	}
+//
+//	logger.Debug("Successfully started a VM")
+//
+//	return
+//}
 
 // Offload Shuts down the VM but leaves shim and other resources running.
 func (o *Orchestrator) OffloadVM(ctx context.Context, vmID string) error {
