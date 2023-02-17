@@ -32,19 +32,19 @@ import (
 // that can be used to connect a function instance to the network.
 type NetworkManager struct {
 	sync.Mutex
-	nextID          int
-	hostIfaceName   string
+	nextID        int
+	hostIfaceName string
 
 	// Pool of free network configs
-	networkPool     []*NetworkConfig
-	poolCond        *sync.Cond
-	poolSize        int
+	networkPool []*NetworkConfig
+	poolCond    *sync.Cond
+	poolSize    int
 
 	// Mapping of function instance IDs to their network config
-	netConfigs      map[string]*NetworkConfig
+	netConfigs map[string]*NetworkConfig
 
 	// Network configs that are being created
-	inCreation      sync.WaitGroup
+	inCreation sync.WaitGroup
 }
 
 // NewNetworkManager creates and returns a new network manager that connects function instances to the network
@@ -86,6 +86,9 @@ func (mgr *NetworkManager) initConfigPool(poolSize int) {
 	var wg sync.WaitGroup
 	wg.Add(poolSize)
 
+	logger := log.WithFields(log.Fields{"poolSize": poolSize})
+	logger.Debug("Initializing network pool")
+
 	// Concurrently create poolSize network configs
 	for i := 0; i < poolSize; i++ {
 		go func() {
@@ -122,6 +125,9 @@ func (mgr *NetworkManager) allocNetConfig(funcID string) *NetworkConfig {
 	// Add netconfig to pool to keep pool to configured size
 	go mgr.addNetConfig()
 
+	logger := log.WithFields(log.Fields{"funcID": funcID})
+	logger.Debug("Allocating a new network config from network pool to function instance")
+
 	// Pop a network config from the pool and allocate it to the function instance
 	mgr.poolCond.L.Lock()
 	for len(mgr.networkPool) == 0 {
@@ -136,6 +142,23 @@ func (mgr *NetworkManager) allocNetConfig(funcID string) *NetworkConfig {
 	mgr.Lock()
 	mgr.netConfigs[funcID] = config
 	mgr.Unlock()
+
+	logger = log.WithFields(log.Fields{
+		"funcID":        funcID,
+		"ContainerIP":   config.getContainerIP(),
+		"NamespaceName": config.getNamespaceName(),
+		"Veth0CIDR":     config.getVeth0CIDR(),
+		"Veth0Name":     config.getVeth0Name(),
+		"Veth1CIDR":     config.getVeth1CIDR(),
+		"Veth1Name":     config.getVeth1Name(),
+		"CloneIP":       config.GetCloneIP(),
+		"ContainerCIDR": config.GetContainerCIDR(),
+		"GatewayIP":     config.GetGatewayIP(),
+		"HostDevName":   config.GetHostDevName(),
+		"NamespacePath": config.GetNamespacePath()})
+
+	logger.Debug("Allocated a new network config")
+
 	return config
 }
 
@@ -145,6 +168,9 @@ func (mgr *NetworkManager) releaseNetConfig(funcID string) {
 	config := mgr.netConfigs[funcID]
 	delete(mgr.netConfigs, funcID)
 	mgr.Unlock()
+
+	logger := log.WithFields(log.Fields{"funcID": funcID})
+	logger.Debug("Releasing network config from function instance and adding it to network pool")
 
 	// Add network config back to the pool. We allow the pool to grow over it's configured size here since the
 	// overhead of keeping a network config in the pool is low compared to the cost of creating a new config.
@@ -156,6 +182,9 @@ func (mgr *NetworkManager) releaseNetConfig(funcID string) {
 
 // CreateNetwork creates the networking for a function instance identified by funcID
 func (mgr *NetworkManager) CreateNetwork(funcID string) (*NetworkConfig, error) {
+	logger := log.WithFields(log.Fields{"funcID": funcID})
+	logger.Debug("Creating network config for function instance")
+
 	netCfg := mgr.allocNetConfig(funcID)
 	return netCfg, nil
 }
@@ -172,6 +201,8 @@ func (mgr *NetworkManager) GetConfig(funcID string) *NetworkConfig {
 // RemoveNetwork removes the network config of a function instance identified by funcID. The allocated network devices
 // for the given function instance must not be in use anymore when calling this function.
 func (mgr *NetworkManager) RemoveNetwork(funcID string) error {
+	logger := log.WithFields(log.Fields{"funcID": funcID})
+	logger.Debug("Removing network config for function instance")
 	mgr.releaseNetConfig(funcID)
 	return nil
 }
